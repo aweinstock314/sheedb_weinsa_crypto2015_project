@@ -1,0 +1,37 @@
+username.card:
+    should contain:
+        PIN
+        Signing key
+        MAC key
+
+ATM client:
+    logout should just sever the connection (maybe? can proxy maliciously keep session open?)
+    login should make a socket connection, but not transmit data-containing messages
+    there should be a "nonce plz" message
+
+datastructures:
+
+struct username {
+    char username[23]; // hard coded max. "alice\0" is 6, so this is plenty. also, prime numbers!
+};
+
+struct message {
+    uint8_t hmac[64]; // HMAC-SHA256
+    struct username username; // server needs to know whose message this is to know whose key to use
+    struct payload payload; // HMAC will be taken of this, this will also maybe be encrypted
+};
+
+enum msgtype_t {
+    NONCEPLZ = 0,
+    BALANCE,
+    WITHDRAW,
+    TRANSFER,
+    GOODBYE
+}
+
+struct payload {
+    msgtype_t msgtype; // the type of the message
+    uint8_t nonce[16]; // 128-bit nonce
+    uint8_t amount[8]; // used for withdraw/transfer, uint64_t, LE
+    struct username destination; // used only for transfer
+}
