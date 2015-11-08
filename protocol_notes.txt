@@ -35,3 +35,25 @@ struct payload {
     uint8_t amount[8]; // used for withdraw/transfer, uint64_t, LE
     struct username destination; // used only for transfer
 }
+-----
+-- payloads are encrypted and subject to Hmac
+data Hmac = V.Vector Word8 -- 64 length because EVP_MAX_MD_SIZE
+data Nonce = V.Vector Word8 -- 128 length because arbitrary
+data ClientToServer = CTS Hmac Username CTSPayload
+data Currency = Cents Word64
+data CTSPayload = RequestNonce
+                | RequestBalance Nonce
+                | RequestWithdrawl Nonce Currency
+                | RequestTransfer Nonce Currency Username
+                | Logout
+data ServerToClient = STC Hmac STCPayload
+data STCPayload = SupplyNonce Nonce
+                | InvalidNonce Nonce
+                | InvalidUser Nonce -- only for the initiator of a request
+                | InsufficentFunds Nonce -- for either withdrawl or transfer
+                | AckBalance Nonce Currency
+                | AckWithdrawlSuccess Nonce Currency
+                | AckWithdrawlFail Nonce -- "Insufficient funds"
+                | AckTransferSuccess Nonce
+                | AckTransferInvalidDestination Nonce -- destination user doesn't exist
+-----
