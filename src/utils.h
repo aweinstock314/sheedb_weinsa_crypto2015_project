@@ -1,33 +1,20 @@
-#include <stdio.h>
+#ifndef UTILS_H
+#define UTILS_H
 
-struct error_code { int err; };
+#include <stdint.h>
 
-#define ADGETS_MIN_SIZE 16
+#define MAX_CLIENTS 4096
 
-struct error_code adgets_d(char** pbuf, int fd, char delim) {
-    assert(pbuf != 0);
-    assert(*pbuf == 0);
-    size_t capacity = ADGETS_MIN_SIZE;
-    size_t count=0;
-    char *buf, *p, c;
+#define ECODE_SUCCESS 0
+#define ECODE_FAILURE 1
+typedef uint8_t error_code;
 
-    if(!(p = buf = malloc(capacity * sizeof(char)))) {
-        return error_code { .err = 1 };
-    }
+int dgetc(int fd);
 
-    for(;;) {
-        if(read(fd, &c, 1) == -1) { goto fail; }
-        if(c == delim) { break; }
-        if(count >= capacity) {
-            // TODO: resize buffer
-        }
-        // TODO: write to buffer
-    }
+error_code read_aon(int fd, char* buf, size_t count);
+error_code write_aon(int fd, const char* buf, size_t count);
 
-    *pbuf = buf;
-    return error_code { .err = 0 };
+error_code recv_synchronize(int fd);
+error_code send_synchronize(int fd);
 
-    fail:
-    free(buf);
-    return error_code { .err = 1 };
-}
+#endif
