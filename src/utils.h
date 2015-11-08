@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define MAX_CLIENTS 4096
-
 #define ECODE_SUCCESS 0
 #define ECODE_FAILURE 1
 typedef uint8_t error_code;
