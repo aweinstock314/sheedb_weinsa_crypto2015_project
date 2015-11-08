@@ -38,7 +38,7 @@ struct payload {
 -----
 -- payloads are encrypted and subject to Hmac
 data Hmac = V.Vector Word8 -- 64 length because EVP_MAX_MD_SIZE
-data Nonce = V.Vector Word8 -- 128 length because arbitrary
+data Nonce = V.Vector Word8 -- 16 length because arbitrary
 data ClientToServer = CTS Hmac Username CTSPayload
 data Currency = Cents Word64
 data CTSPayload = RequestNonce
