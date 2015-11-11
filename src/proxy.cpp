@@ -54,13 +54,13 @@ int forwardData(int in_sd, int out_sd){
 
 //Handle an incoming connection from an ATM
 //Load tested via "for i in $(seq 1 10000); do (nc localhost 8080 &) ; done"
-void handleConnection(int client_sd){
+void handleConnection(int atm_sd){
     cout  << "Start" << endl;
     //Create a socket for the connection to the bank
-    int server_sd = socket(AF_INET, SOCK_STREAM, 0);
-    if(server_sd < 0){
+    int bank_sd = socket(AF_INET, SOCK_STREAM, 0);
+    if(bank_sd < 0){
         cerr << "Failed to create socket for connection to bank" << endl;
-        close(client_sd);
+        close(atm_sd);
         return;
     }
 
@@ -73,10 +73,10 @@ void handleConnection(int client_sd){
     server.sin_port = htons(send_port);
 
     //Connect to the bank
-    if( connect(server_sd, (struct sockaddr*) &server, sizeof(server)) < 0 ){
+    if( connect(bank_sd, (struct sockaddr*) &server, sizeof(server)) < 0 ){
         perror("Failed to connect to bank");
-        close(client_sd);
-        close(server_sd);
+        close(atm_sd);
+        close(bank_sd);
         return;
     }
 
@@ -86,8 +86,8 @@ void handleConnection(int client_sd){
     int epoll_fd = epoll_create1(0);
     if(epoll_fd < 0){
         cerr << "epoll creation failed" << endl;
-        close(client_sd);
-        close(server_sd);
+        close(atm_sd);
+        close(bank_sd);
         return;
     }
 
@@ -96,19 +96,19 @@ void handleConnection(int client_sd){
     //Setup epoll
     struct epoll_event ev, events[MAX_EVENTS];
     ev.events = EPOLLIN;
-    ev.data.fd = client_sd;
-    if( epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_sd, &ev) < 0 ){
+    ev.data.fd = atm_sd;
+    if( epoll_ctl(epoll_fd, EPOLL_CTL_ADD, atm_sd, &ev) < 0 ){
         cerr << "Failed to setup epoll for atm" << endl;
-        close(client_sd);
-        close(server_sd);
+        close(atm_sd);
+        close(bank_sd);
         close(epoll_fd);
         return;
     }
-    ev.data.fd = server_sd;
-    if( epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_sd, &ev) < 0 ){
+    ev.data.fd = bank_sd;
+    if( epoll_ctl(epoll_fd, EPOLL_CTL_ADD, bank_sd, &ev) < 0 ){
         cerr << "Failed to setup epoll for bank" << endl;
-        close(client_sd);
-        close(server_sd);
+        close(atm_sd);
+        close(bank_sd);
         close(epoll_fd);
         return;
     }
@@ -118,40 +118,40 @@ void handleConnection(int client_sd){
     while(true){
         num_fds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
         for(int i = 0; i < num_fds; i++){
-            if(events[i].data.fd == client_sd){
+            if(events[i].data.fd == atm_sd){
                 cout << "Received data from client" << endl;
-                rc = forwardData(client_sd, server_sd);
+                rc = forwardData(atm_sd, bank_sd);
             }
             else{
                 cout << "Received data from server" << endl;
-                rc = forwardData(server_sd, client_sd);
+                rc = forwardData(bank_sd, atm_sd);
             }
             if(rc == -1){
                 cerr << "Error forwarding data" << endl;
-                close(client_sd);
-                close(server_sd);
+                close(atm_sd);
+                close(bank_sd);
                 close(epoll_fd);
                 return;
             }
             else if(rc == 0){
                 cerr << "Connection closed" << endl;
-                close(client_sd);
-                close(server_sd);
+                close(atm_sd);
+                close(bank_sd);
                 close(epoll_fd);
                 return;
             }
         }
     }
 
-    close(client_sd);
-    close(server_sd);
+    close(atm_sd);
+    close(bank_sd);
     close(epoll_fd);
 }
 
 //Listens for connections on the specified port and creates a thread to handle each one
 int main(int argc, char* argv[]){
     if(argc != 3){
-        cout << "Proxy takes arguments <listen port> <send port>" << endl;
+        cout << "Proxy takes arguments <port to listen for atms> <port to connect to bank>" << endl;
         return EXIT_FAILURE;
     }
 
@@ -189,13 +189,13 @@ int main(int argc, char* argv[]){
     int fromlen = sizeof(client);
 
     while(true){
-        int client_sd = accept(listener_socket, (struct sockaddr *) &client, (socklen_t*) &fromlen);
-        if(client_sd < 0){
+        int atm_sd = accept(listener_socket, (struct sockaddr *) &client, (socklen_t*) &fromlen);
+        if(atm_sd < 0){
             cerr << "Failed to accept connection" << endl;
             continue;
         }
         
-        thread client_thread(handleConnection, client_sd);
+        thread client_thread(handleConnection, atm_sd);
         client_thread.detach();
     }
 }
