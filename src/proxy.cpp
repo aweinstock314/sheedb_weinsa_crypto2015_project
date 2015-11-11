@@ -3,15 +3,16 @@ Proxy for the crypto project. Simply creates a new thread for each incoming conn
 Derived from code at http://www.cs.rpi.edu/~goldsd/docs/spring2015-csci4210/server.c.txt
 */
 
-#include <sys/socket.h>
-#include <iostream>
-#include <thread>
-#include <cstdlib>
 #include <cstdio>
-#include <unistd.h>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 #include <netinet/in.h>
 #include <signal.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
+#include <thread>
+#include <unistd.h>
 
 #include "constants.h"
 
@@ -66,14 +67,14 @@ void handleConnection(int client_sd){
     cout << "Server socket created" << endl;
 
     struct sockaddr_in server;
+    memset(&server, 0, sizeof server);
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     server.sin_port = htons(send_port);
 
     //Connect to the bank
     if( connect(server_sd, (struct sockaddr*) &server, sizeof(server)) < 0 ){
-        cerr << "Failed to connect to bank" << endl;
-        perror("Reason:");
+        perror("Failed to connect to bank");
         close(client_sd);
         close(server_sd);
         return;
