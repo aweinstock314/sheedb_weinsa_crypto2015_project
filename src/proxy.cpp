@@ -67,12 +67,13 @@ void handleConnection(int client_sd){
 
     struct sockaddr_in server;
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_LOOPBACK;
+    server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     server.sin_port = htons(send_port);
 
     //Connect to the bank
     if( connect(server_sd, (struct sockaddr*) &server, sizeof(server)) < 0 ){
         cerr << "Failed to connect to bank" << endl;
+        perror("Reason:");
         close(client_sd);
         close(server_sd);
         return;
