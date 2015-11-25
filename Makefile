@@ -7,13 +7,16 @@ endef
 CARDOUTPUT=$(call NAMES,cards/,.card) $(call NAMES,includecards/,.card.h)
 CCFLAGS=-O2 -std=c++11 -Wall -Wextra -pedantic
 
-all: bin/ bin/atm ${CARDOUTPUT}
+all: bin/ bin/atm bin/proxy ${CARDOUTPUT}
 
 bin/:
 	mkdir bin
 
 bin/atm: bin/ src/atm.cpp src/constants.h
-	g++ ${CCFLAGS} src/atm.cpp -o bin/atm
+	g++ ${CCFLAGS} src/atm.cpp -o $@
+
+bin/proxy: bin/ src/proxy.cpp src/constants.h
+	g++ ${CCFLAGS} src/proxy.cpp -o $@
 
 ${CARDOUTPUT}: keygen.py
 	./keygen.py
