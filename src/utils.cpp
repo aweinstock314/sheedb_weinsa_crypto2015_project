@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <openssl/evp.h>
 #include "utils.h"
 
+#define IV 0 //Constant IV for now
 
 // allocating descriptor get-string [with] delimiter, abandoned after deciding that fixed-length messages were a better idea
 /*
@@ -86,3 +88,100 @@ error_code recv_synchronize(int fd) {
 error_code send_synchronize(int fd) {
     return write_aon(fd, synchronization_magic, sizeof synchronization_magic);
 }
+
+//Encrypts using 128 bit AES
+//Based off the encryption sample code on the openssl wiki
+int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* key,
+        unsigned char* ciphertext){
+    EVP_CIPHER_CTX* ctx;
+    int len;
+    int ciphertext_len;
+
+    //Initialize context
+    if(!(ctx = EVP_CIPHER_CTX_new() ) ){
+        return -1;    
+    }
+
+    //Initialize AES
+    if( EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, IV) != 1 ){
+        return -1;
+    }
+
+    //Encrypt data
+    if( EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len) != 1 ){
+        return -1;
+    }
+    ciphertext_len = len;
+    
+    //Finish encryption
+    if( EVP_EncryptFinal_ex(ctx, ciphertext + len, &len) != 1 ){
+        return -1;
+    }
+    ciphertext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return ciphertext_len;
+}
+
+//Decrypts using 128 bit AES
+int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
+        unsigned char* plaintext){
+    EVP_CIPHER_CTX* ctx;
+    int len;
+    int plaintext_len;
+    
+    //Create context
+    if(!(ctx = EVP_CIPHER_CTX_new()) ){
+        return -1;
+    }
+
+    //Initialize AES
+    if( EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, IV) != 1 ){
+        return -1;
+    }
+
+    //Decrypt data
+    if( EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len) != 1 ){
+        return -1;
+    }
+    plaintext_len = len;
+
+    //Finish decryption
+    if( EVP_DecryptFinal_ex(ctx, plaintext + len, &len) != 1 ){
+        return -1;
+    }
+    plaintext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return plaintext_len;
+}
+
+/*
+//Helper function to copy the data in a unint64_t into a char*. Returns the updated pointer that has been advanced past the copied data
+char* serialize_uint64(uint64_t value, char* buf){
+    memcpy(buf, &value, sizeof(value));
+    buf += sizeof(value);
+    return buf;
+}
+
+//Helper function to extract a unint64_t from a char*. Returns the updated pointer that has been advanced past the copied data.
+char* deserialize_uint64(uint64_t &value, char* buf){
+    memcpy(&value, buf, sizeof(value));
+    buf += sizeof(value);
+    return buf;
+}
+
+//Helper function to copy the data in a uint8_t array into a char*. Returns the updated pointer that has been advanced past the copied data
+char* serialize_uint8a(uint8_t* value, unsigned int size, char* buf){
+    memcpy(buf, value, size);
+    buf += size;
+    return buf;
+}
+
+//Helper function to extract a uint8_t array from a char*. Returns the updated pointer that has been advanced past the copied data
+char* deserialize_uint8a(uint8_t* value, unsigned int size, char* buf){
+    memcpy(value, buf, size);
+    buf += size;
+    return buf;
+}*/
+

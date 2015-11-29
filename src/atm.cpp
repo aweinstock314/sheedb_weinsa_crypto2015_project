@@ -16,16 +16,25 @@ ATM program for the crypto project
 #include <cstring>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 
 #include "constants.h"
+#include "utils.h"
+#include "datatypes.h"
 
 #define CARD_PATH "../cards/"
+#define TIMEOUT 5
 
 using namespace std;
 
-int sd;
+//Global variables
+int sd; //Socket descriptor
 bool connected = false;
 string user;
+uint8_t nonce[NONCE_SIZE];
+unsigned char encrypt_key[ENCRYPT_KEY_SIZE];
+unsigned char mac_key[MAC_KEY_SIZE];
 
 /*##############################################################################
 Menu Functions
@@ -43,7 +52,7 @@ void printMenu(){
 }
 
 vector<string> getTokens(string s){
-    char base[s.size() + 1];
+    char* base = new char[s.size() + 1];
     strcpy(base, s.c_str());
     vector<string> tokens;
     char* token = strtok(base, " ");
@@ -51,6 +60,7 @@ vector<string> getTokens(string s){
         tokens.push_back(string(token));
         token = strtok(NULL, " ");
     }
+    delete[] base;
     return tokens;
 }
 
@@ -59,6 +69,49 @@ vector<string> getInput(){
     printMenu();
     getline(cin, input);
     return getTokens(input);
+}
+
+/*##############################################################################
+Misc Functions
+##############################################################################*/
+
+void serializeClientToServer(char* buf, struct client_to_server message){
+    memcpy(buf, &message, sizeof(message));
+}
+
+void serializeCtsPayload(unsigned char* buf, struct cts_payload payload){
+    memcpy(buf, &payload, sizeof(payload));
+}
+
+//Gets a new nonce for communication
+bool getNonce(){
+    struct client_to_server message;
+    struct cts_payload payload;
+
+    //Prepare the payload for encryption
+    memset(&payload, 0, sizeof(payload));
+    payload.tag = requestNonce;
+    unsigned char plaintext[sizeof(struct cts_payload) + (sizeof(struct cts_payload) % 16)];
+    serializeCtsPayload(plaintext, payload);    
+    
+    //Encrypt the payload
+    int rc = encrypt( plaintext, sizeof(plaintext),
+        encrypt_key, message.payload.payload );
+
+    if(rc == -1){
+        return false;    
+    }
+
+    //Test code
+    /*memset(&plaintext, 0, sizeof(plaintext));
+    
+    rc = decrypt(message.payload.payload, sizeof(message.payload.payload), encrypt_key, plaintext);
+    cout << rc << endl;
+    struct cts_payload test;
+    memcpy(&test, plaintext, sizeof(test));
+    cout << test.tag << " " << test.destination.username << endl;*/
+
+    return true;
 }
 
 /*##############################################################################
@@ -92,8 +145,6 @@ void handleLogin(vector<string> tokens, unsigned short port){
 
     //Read the PIN and keys
     char pin[PIN_SIZE];    
-    char encrypt_key[ENCRYPT_KEY_SIZE];
-    char mac_key[MAC_KEY_SIZE];
 
     ssize_t bytes_read = read(fd, pin, (size_t) PIN_SIZE);
     if(bytes_read != PIN_SIZE){
@@ -150,6 +201,11 @@ void handleLogin(vector<string> tokens, unsigned short port){
 
     cout << "Connected to proxy successfully" << endl;
     connected = true;
+
+    //Zero nonce
+    memset(nonce, 0, NONCE_SIZE);
+
+    getNonce();
 }
 
 void handleBalance(){

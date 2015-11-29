@@ -12,8 +12,8 @@ all: bin/ bin/atm bin/proxy ${CARDOUTPUT}
 bin/:
 	mkdir bin
 
-bin/atm: bin/ src/atm.cpp src/constants.h
-	g++ ${CCFLAGS} src/atm.cpp -o $@
+bin/atm: bin/ src/atm.cpp src/constants.h 
+	g++ ${CCFLAGS} src/atm.cpp src/utils.cpp -o $@ -lssl -lcrypto
 
 bin/proxy: bin/ src/proxy.cpp src/constants.h
 	g++ ${CCFLAGS} src/proxy.cpp -o $@

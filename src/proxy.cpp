@@ -158,10 +158,6 @@ int main(int argc, char* argv[]){
     //Get ports
     unsigned short listen_port = (unsigned short) atoi(argv[1]);
     send_port = (unsigned short) atoi(argv[2]);
-    if( listen_port > 65535 || send_port > 65535 ){
-        cout << "Port larger than supported value" << endl;
-        return EXIT_FAILURE;
-    }
 
     //Create listener socket
     listener_socket = socket( AF_INET, SOCK_STREAM, 0 );
