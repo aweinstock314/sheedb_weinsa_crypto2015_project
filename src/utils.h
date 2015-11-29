@@ -20,6 +20,8 @@ int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* key,
 int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
     unsigned char* plaintext);
 
+int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, unsigned char* destination);
+
 /*char* serialize_uint64(uint64_t value, char* buf);
 char* deserialize_uint64(uint64_t &value, char* buf);
 

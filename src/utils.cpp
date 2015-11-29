@@ -2,7 +2,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #include "utils.h"
+#include "constants.h"
 
 #define IV 0 //Constant IV for now
 
@@ -154,6 +156,17 @@ int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
 
     EVP_CIPHER_CTX_free(ctx);
     return plaintext_len;
+}
+
+//Generates an HMAC for the given key and data and puts it into destination. Returns the length of the hmac or -1 on error.
+int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, unsigned char* destination){
+    unsigned int len;
+    unsigned char* result = HMAC(EVP_sha256(), key, MAC_KEY_SIZE, data, data_len,
+        destination, &len);
+    if(result == NULL){
+        return -1;
+    }
+    return len;
 }
 
 /*

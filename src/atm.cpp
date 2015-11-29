@@ -16,7 +16,6 @@ ATM program for the crypto project
 #include <cstring>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <openssl/hmac.h>
 #include <openssl/evp.h>
 
 #include "constants.h"
@@ -86,23 +85,43 @@ void serializeCtsPayload(unsigned char* buf, struct cts_payload payload){
 //Gets a new nonce for communication
 bool getNonce(){
     struct client_to_server message;
+    memset(&message, 0, sizeof(message));
     struct cts_payload payload;
 
     //Prepare the payload for encryption
     memset(&payload, 0, sizeof(payload));
     payload.tag = requestNonce;
     unsigned char plaintext[sizeof(struct cts_payload) + (sizeof(struct cts_payload) % 16)];
+    memset(plaintext, 0, sizeof(plaintext));
     serializeCtsPayload(plaintext, payload);    
     
     //Encrypt the payload
     int rc = encrypt( plaintext, sizeof(plaintext),
         encrypt_key, message.payload.payload );
-
     if(rc == -1){
         return false;    
     }
+    
+    //Add the sending user
+    strcpy(message.src.username, user.c_str());
+    
+    //Generate the HMAC
+    rc = genHMAC(message.payload.payload, sizeof(message.payload.payload),
+        mac_key, message.hmac.hmac);
+    if(rc == -1){
+        return false;
+    }
+
+    //TODO: Send message and wait for reply
 
     //Test code
+    /*unsigned char hmac[EVP_MAX_MD_SIZE];
+    rc = genHMAC(message.payload.payload, sizeof(message.payload.payload), mac_key, hmac);
+    cout << rc << endl;
+    for(int i = 0; i < rc; i++){
+        cout << hex << (int)hmac[i];
+    }
+    cout << endl;*/
     /*memset(&plaintext, 0, sizeof(plaintext));
     
     rc = decrypt(message.payload.payload, sizeof(message.payload.payload), encrypt_key, plaintext);

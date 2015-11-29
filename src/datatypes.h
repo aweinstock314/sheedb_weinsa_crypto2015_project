@@ -1,6 +1,7 @@
 #ifndef DATATYPES_H
 #define DATATYPES_H
 #include <openssl/hmac.h>
+#include <openssl/evp.h>
 #include <stdint.h>
 #include "constants.h"
 
