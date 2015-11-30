@@ -27,6 +27,7 @@ int listener_socket;
 
 //Close socket on ^C
 void handle_control_c(int s){
+    (void)s; // silence -Wunused-parameter
     close(listener_socket);
     exit(EXIT_SUCCESS);
 }

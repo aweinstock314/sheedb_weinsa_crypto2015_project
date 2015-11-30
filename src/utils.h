@@ -1,7 +1,10 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <iostream>
 #include <stdint.h>
+#include <string>
+#include <vector>
 
 #define ECODE_SUCCESS 0
 #define ECODE_FAILURE 1
@@ -21,6 +24,9 @@ int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
     unsigned char* plaintext);
 
 int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, unsigned char* destination);
+
+std::vector<std::string> tokenize(std::string s);
+std::vector<std::string> get_tokenized_line();
 
 /*char* serialize_uint64(uint64_t value, char* buf);
 char* deserialize_uint64(uint64_t &value, char* buf);

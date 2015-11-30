@@ -12,10 +12,10 @@ all: bin/ bin/atm bin/proxy ${CARDOUTPUT}
 bin/:
 	mkdir bin
 
-bin/atm: bin/ src/atm.cpp src/constants.h 
+bin/atm: src/atm.cpp src/constants.h
 	g++ ${CCFLAGS} src/atm.cpp src/utils.cpp -o $@ -lssl -lcrypto
 
-bin/proxy: bin/ src/proxy.cpp src/constants.h
+bin/proxy: src/proxy.cpp src/constants.h
 	g++ ${CCFLAGS} src/proxy.cpp -o $@
 
 ${CARDOUTPUT}: keygen.py

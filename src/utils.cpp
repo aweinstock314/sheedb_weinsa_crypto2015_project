@@ -1,10 +1,12 @@
+#include <openssl/evp.h>
+#include <alloca.h>
+#include <openssl/hmac.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#include "utils.h"
+
 #include "constants.h"
+#include "utils.h"
 
 #define IV 0 //Constant IV for now
 
@@ -50,7 +52,8 @@ int dgetc(int fd) {
 // "all or nothing" read/write, to handle interruptions/byte-by-byte input
 #define DEF_AON(prefix, underlying) \
 error_code underlying ## _aon(int fd, prefix char* buf, size_t count) { \
-    ssize_t tmp, sofar=0; \
+    ssize_t tmp; \
+    size_t sofar = 0; \
     while(sofar < count) { \
         tmp = underlying(fd, buf+sofar, count-sofar); \
         if(tmp <= 0) { return ECODE_FAILURE; } \
@@ -167,6 +170,26 @@ int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, u
         return -1;
     }
     return len;
+}
+
+std::vector<std::string> tokenize(std::string s) {
+    size_t len = s.size();
+    char *saveptr, *token, *base = (char*)alloca(len+1);
+    memcpy(base, s.c_str(), len);
+    base[len] = 0;
+    std::vector<std::string> tokens;
+    token = strtok_r(base, " ", &saveptr);
+    while(token != NULL) {
+        tokens.push_back(std::string(token));
+        token = strtok_r(NULL, " ", &saveptr);
+    }
+    return tokens;
+}
+
+std::vector<std::string> get_tokenized_line() {
+    std::string input;
+    std::getline(std::cin, input);
+    return tokenize(input);
 }
 
 /*

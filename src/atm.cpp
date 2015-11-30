@@ -50,26 +50,6 @@ void printMenu(){
     cout << endl;
 }
 
-vector<string> getTokens(string s){
-    char* base = new char[s.size() + 1];
-    strcpy(base, s.c_str());
-    vector<string> tokens;
-    char* token = strtok(base, " ");
-    while(token != NULL){
-        tokens.push_back(string(token));
-        token = strtok(NULL, " ");
-    }
-    delete[] base;
-    return tokens;
-}
-
-vector<string> getInput(){
-    string input;
-    printMenu();
-    getline(cin, input);
-    return getTokens(input);
-}
-
 /*##############################################################################
 Misc Functions
 ##############################################################################*/
@@ -258,7 +238,8 @@ int main(int argc, char* argv[]){
     //Menu loop
     vector<string> tokens;
     while(true){
-        tokens = getInput();
+        printMenu();
+        tokens = get_tokenized_line();
         if(tokens.size() == 0){
             continue;
         }
