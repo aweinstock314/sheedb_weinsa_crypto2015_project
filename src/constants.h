@@ -7,5 +7,7 @@
 #define ENCRYPT_KEY_SIZE 16 //128-bits, 128 bit AES is fine
 #define MAC_KEY_SIZE 16 //128-bits, arbitrary power of 2
 #define PIN_SIZE 4 //32 bits, 4 digit pin code
+#define AES_BLOCKSIZE_BYTES (128/8) //16 byte block size
+#define PADDING_FUDGE_FACTOR (2 * AES_BLOCKSIZE_BYTES) //Overallocate to be safe
 
 #endif
