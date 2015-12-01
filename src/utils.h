@@ -13,15 +13,23 @@ typedef uint8_t error_code;
 
 int dgetc(int fd);
 
+//Read/write all or error
 error_code read_aon(int fd, char* buf, size_t count);
 error_code write_aon(int fd, const char* buf, size_t count);
 
+//Send/receive synchronization sequence
 error_code recv_synchronize(int fd);
 error_code send_synchronize(int fd);
 
+//High level functions for synchronized reads and writes
+error_code read_synchronize(int fd, char* buf, size_t count);
+error_code write_synchronize(int fd, const char* buf, size_t count);
+
+//AES encryption and decryption
 int encrypt(const unsigned char* plaintext, int plaintext_len, const unsigned char* key, unsigned char* ciphertext);
 int decrypt(const unsigned char* ciphertext, int ciphertext_len, const unsigned char* key, unsigned char* plaintext);
 
+//HMAC functions
 int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, unsigned char* destination);
 error_code verifyHMAC(const unsigned char* data, int data_len, const unsigned char* key, const unsigned char* hmac);
 

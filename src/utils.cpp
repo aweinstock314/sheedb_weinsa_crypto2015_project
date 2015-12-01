@@ -97,6 +97,26 @@ error_code send_synchronize(int fd) {
     return write_aon(fd, synchronization_magic, sizeof synchronization_magic);
 }
 
+//High level function for calling read_aon and recv_synchronize
+error_code read_synchronize(int fd, char* buf, size_t count){
+    error_code ret = read_aon(fd, buf, count);
+    if(ret != ECODE_SUCCESS){
+        return ret;
+    }
+    ret = recv_synchronize(fd);
+    return ret;
+}
+
+//High level function for calling write_aon and send_synchronize
+error_code write_synchronize(int fd, const char* buf, size_t count){
+    error_code ret = write_aon(fd, buf, count);
+    if(ret != ECODE_SUCCESS){
+        return ret;
+    }
+    ret = send_synchronize(fd);
+    return ret;
+}
+
 //Encrypts using 128 bit AES
 //Based off the encryption sample code on the openssl wiki
 int encrypt(const unsigned char* plaintext, int plaintext_len, const unsigned char* key, unsigned char* ciphertext){
