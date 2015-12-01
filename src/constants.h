@@ -9,5 +9,6 @@
 #define PIN_SIZE 4 //32 bits, 4 digit pin code
 #define AES_BLOCKSIZE_BYTES (128/8) //16 byte block size
 #define PADDING_FUDGE_FACTOR (2 * AES_BLOCKSIZE_BYTES) //Overallocate to be safe
+#define CENTS_PER_DOLLAR 100
 
 #endif

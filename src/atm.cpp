@@ -96,7 +96,7 @@ bool convertTokenToCents(string token, uint64_t &value){
     //much money from the ATM. ATMS don't even carry that much money.
     unsigned long dollars = strtoul(parts[0].c_str(), NULL, 10);
     unsigned long cents = strtoul(parts[1].c_str(), NULL, 10);
-    value = (uint64_t)(dollars * 100) + (uint64_t)cents;
+    value = (uint64_t)(dollars * CENTS_PER_DOLLAR) + (uint64_t)cents;
     return true;
 }
 
@@ -309,14 +309,14 @@ void handleBalance(){
     }
 
     //Print balance
-    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / 100);
-    unsigned int cents = (unsigned int)(server_payload.currency.cents % 100);
+    uint64_t dollars = (uint64_t)(server_payload.currency.cents / CENTS_PER_DOLLAR);
+    unsigned int cents = (unsigned int)(server_payload.currency.cents % CENTS_PER_DOLLAR);
     cout << "You have $" << dollars << ".";
     cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << endl;
     if(server_payload.currency.cents == 0){
         cout << "You're poor." << endl;
     }
-    else if(server_payload.currency.cents > 900000){
+    else if(server_payload.currency.cents > (9000 * CENTS_PER_DOLLAR)) {
         cout << "It's over 9000." << endl;
     }
 }
@@ -392,8 +392,8 @@ void handleWithdraw(vector<string> tokens){
     }
 
     //Print amount withdrawn
-    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / 100);
-    unsigned int cents = (unsigned int)(server_payload.currency.cents % 100);
+    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / CENTS_PER_DOLLAR);
+    unsigned int cents = (unsigned int)(server_payload.currency.cents % CENTS_PER_DOLLAR);
     cout << "You withdrew $" << dollars << ".";
     cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << endl;
 }
@@ -477,8 +477,8 @@ void handleTransfer(vector<string> tokens){
     }
 
     //Print amount withdrawn
-    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / 100);
-    unsigned int cents = (unsigned int)(server_payload.currency.cents % 100);
+    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / CENTS_PER_DOLLAR);
+    unsigned int cents = (unsigned int)(server_payload.currency.cents % CENTS_PER_DOLLAR);
     cout << "You transfered $" << dollars << ".";
     cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << " to " << tokens[2] << endl;
 }
