@@ -32,8 +32,7 @@ struct cts_payload {
 
 //Encrypted client to server message contents
 struct cts_payload_enc {
-    //AES uses multiples of 16 bytes
-    unsigned char payload[sizeof(struct cts_payload) + (sizeof(struct cts_payload) % 16) + 16];
+    unsigned char payload[sizeof(struct cts_payload) + PADDING_FUDGE_FACTOR];
 };
 
 //Client to server message
@@ -65,8 +64,7 @@ struct stc_payload {
 
 //Encrypted server to client message contents
 struct stc_payload_enc {
-    //AES uses multiples of 16 bytes
-    unsigned char* payload[sizeof(struct stc_payload) + (sizeof(struct stc_payload) % 16)];
+    unsigned char payload[sizeof(struct stc_payload) + PADDING_FUDGE_FACTOR];
 };
 
 //Server to client message

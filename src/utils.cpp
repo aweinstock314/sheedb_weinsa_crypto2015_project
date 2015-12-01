@@ -96,69 +96,73 @@ error_code send_synchronize(int fd) {
 
 //Encrypts using 128 bit AES
 //Based off the encryption sample code on the openssl wiki
-int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* key,
-        unsigned char* ciphertext){
+int encrypt(const unsigned char* plaintext, int plaintext_len, const unsigned char* key, unsigned char* ciphertext){
     EVP_CIPHER_CTX* ctx;
     int len;
     int ciphertext_len;
+    int ret = -1;
 
     //Initialize context
     if(!(ctx = EVP_CIPHER_CTX_new() ) ){
-        return -1;    
+        return ret; // avoid freeing uninitialized data
     }
 
     //Initialize AES
     if( EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, IV) != 1 ){
-        return -1;
+        goto cleanup;
     }
 
     //Encrypt data
     if( EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len) != 1 ){
-        return -1;
+        goto cleanup;
     }
     ciphertext_len = len;
     
     //Finish encryption
     if( EVP_EncryptFinal_ex(ctx, ciphertext + len, &len) != 1 ){
-        return -1;
+        goto cleanup;
     }
     ciphertext_len += len;
+    ret = ciphertext_len;
 
+    cleanup:
     EVP_CIPHER_CTX_free(ctx);
     return ciphertext_len;
 }
 
 //Decrypts using 128 bit AES
-int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
-        unsigned char* plaintext){
+int decrypt(const unsigned char* ciphertext, int ciphertext_len, const unsigned char* key, unsigned char* plaintext){
     EVP_CIPHER_CTX* ctx;
     int len;
     int plaintext_len;
+    int ret = -1;
     
     //Create context
     if(!(ctx = EVP_CIPHER_CTX_new()) ){
-        return -1;
+        return ret; // avoid freeing uninitialized data
     }
 
     //Initialize AES
     if( EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, IV) != 1 ){
-        return -1;
+        goto cleanup;
     }
 
     //Decrypt data
     if( EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len) != 1 ){
-        return -1;
+        goto cleanup;
     }
     plaintext_len = len;
 
     //Finish decryption
     if( EVP_DecryptFinal_ex(ctx, plaintext + len, &len) != 1 ){
-        return -1;
+        goto cleanup;
     }
     plaintext_len += len;
+    ret = plaintext_len;
 
+    cleanup:
     EVP_CIPHER_CTX_free(ctx);
-    return plaintext_len;
+    return ret;
 }
 
 //Generates an HMAC for the given key and data and puts it into destination. Returns the length of the hmac or -1 on error.
