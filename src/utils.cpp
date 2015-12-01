@@ -227,8 +227,8 @@ error_code verifyHMAC(const unsigned char* data, int data_len, const unsigned ch
     if(genHMAC(data, data_len, key, (unsigned char*)&tmp) < 0) {
         return ECODE_FAILURE;
     }
-    // TODO: mitigate http://rdist.root.org/2010/08/05/optimized-memcmp-leaks-useful-timing-differences/
-    return memcmp(hmac, &tmp, sizeof tmp) == 0 ? ECODE_SUCCESS : ECODE_FAILURE;
+    // CRYPTO_memcmp mitigates http://rdist.root.org/2010/08/05/optimized-memcmp-leaks-useful-timing-differences/
+    return CRYPTO_memcmp(hmac, &tmp, sizeof tmp) == 0 ? ECODE_SUCCESS : ECODE_FAILURE;
 }
 
 std::vector<std::string> tokenize(std::string s, const char* delimiter) {
