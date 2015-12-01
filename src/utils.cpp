@@ -99,7 +99,7 @@ error_code send_synchronize(int fd) {
 int encrypt(const unsigned char* plaintext, int plaintext_len, const unsigned char* key, unsigned char* ciphertext){
     EVP_CIPHER_CTX* ctx;
     int len;
-    int ciphertext_len;
+    int ciphertext_len = 0;
     int ret = -1;
 
     //Initialize context
@@ -165,6 +165,49 @@ int decrypt(const unsigned char* ciphertext, int ciphertext_len, const unsigned 
     return ret;
 }
 
+#define ENSERIALCRYPT_BODY \
+if(encrypt((const unsigned char*)src, sizeof(*src), cryptkey, (unsigned char*)&dst->payload) < 0) { \
+    return ECODE_FAILURE; \
+} \
+if(genHMAC((const unsigned char*)&dst->payload, sizeof(dst->payload), \
+    signkey, (unsigned char*)&dst->hmac) < 0) { \
+    return ECODE_FAILURE; \
+} \
+return ECODE_SUCCESS;
+
+#define DESERIALCRYPT_BODY \
+if(verifyHMAC((const unsigned char*)&src->payload, sizeof(src->payload), \
+    signkey, (unsigned char*)&src->hmac) == ECODE_FAILURE) { \
+    return ECODE_FAILURE; \
+} \
+if(decrypt((const unsigned char*)&src->payload, sizeof(src->payload), cryptkey, (unsigned char*)dst) < 0) { \
+    return ECODE_FAILURE; \
+} \
+return ECODE_SUCCESS;
+
+
+error_code enserialcrypt_cts(const unsigned char* cryptkey, const unsigned char* signkey,
+    const struct cts_payload* src, struct client_to_server* dst) {
+    ENSERIALCRYPT_BODY
+}
+
+error_code deserialcrypt_cts(const unsigned char* cryptkey, const unsigned char* signkey,
+    const struct client_to_server* src, struct cts_payload* dst) {
+    DESERIALCRYPT_BODY
+}
+
+error_code enserialcrypt_stc(const unsigned char* cryptkey, const unsigned char* signkey,
+    const struct stc_payload* src, struct server_to_client* dst) {
+    ENSERIALCRYPT_BODY
+}
+error_code deserialcrypt_stc(const unsigned char* cryptkey, const unsigned char* signkey,
+    const struct server_to_client* src, struct stc_payload* dst) {
+    DESERIALCRYPT_BODY
+}
+
+#undef ENSERIALCRYPT_BODY
+#undef DESERIALCRYPT_BODY
+
 //Generates an HMAC for the given key and data and puts it into destination. Returns the length of the hmac or -1 on error.
 int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, unsigned char* destination){
     unsigned int len;
@@ -175,6 +218,16 @@ int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, u
     }
     return len;
 }
+
+error_code verifyHMAC(const unsigned char* data, int data_len, const unsigned char* key, const unsigned char* hmac) {
+    struct hmac_t tmp;
+    if(genHMAC(data, data_len, key, (unsigned char*)&tmp) < 0) {
+        return ECODE_FAILURE;
+    }
+    // TODO: mitigate http://rdist.root.org/2010/08/05/optimized-memcmp-leaks-useful-timing-differences/
+    return memcmp(hmac, &tmp, sizeof hmac) == 0 ? ECODE_SUCCESS : ECODE_FAILURE;
+}
+
 
 std::vector<std::string> tokenize(std::string s) {
     size_t len = s.size();
@@ -225,3 +278,21 @@ char* deserialize_uint8a(uint8_t* value, unsigned int size, char* buf){
     return buf;
 }*/
 
+char hexdigit(char nybble) {
+    if((0x0 <= nybble) && (nybble <= 0x9)) { return '0'+nybble; }
+    if((0xA <= nybble) && (nybble <= 0xF)) { return 'A'+nybble-0xA; }
+    return '?';
+}
+
+void hexdump(int fd, const void* buffer, size_t count) {
+    const unsigned char* p = (const unsigned char*)buffer;
+    char outbuf[2];
+    ssize_t unused;
+    while(count--) {
+        outbuf[0] = hexdigit(((*p) & 0xf0) >> 4);
+        outbuf[1] = hexdigit((*p) & 0x0f);
+        unused = write(fd, outbuf, 2);
+        (void)unused;
+        p++;
+    }
+}

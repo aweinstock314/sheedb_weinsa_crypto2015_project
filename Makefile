@@ -5,7 +5,7 @@ $(1)Alice$(2) $(1)Bob$(2) $(1)Eve$(2)
 endef
 
 # https://wiki.debian.org/Hardening#Notes_on_Memory_Corruption_Mitigation_Methods
-MITIGATIONS=-fstack-protector -D_FORTIFY_SOURCE=2 -fPIC -Wl,-zrelro,-znow
+MITIGATIONS=-fstack-protector-all -D_FORTIFY_SOURCE=2 -fPIC -Wl,-zrelro,-znow
 
 CARDOUTPUT=$(call NAMES,cards/,.card) $(call NAMES,includecards/,.card.h)
 CCFLAGS=-O2 ${MITIGATIONS} -std=c++11 -Wall -Wextra -pedantic
