@@ -17,6 +17,8 @@ ATM program for the crypto project
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <openssl/evp.h>
+#include <cmath>
+#include <iomanip>
 
 #include "constants.h"
 #include "utils.h"
@@ -54,12 +56,28 @@ void printMenu(){
 Misc Functions
 ##############################################################################*/
 
-void serializeClientToServer(char* buf, struct client_to_server message){
-    memcpy(buf, &message, sizeof(message));
+bool convertTokenToCents(string token, uint64_t &value){
+    vector<string> parts = tokenize(token, ".");
+    if(parts.size() != 2){
+        cout << "Invalid currency input" << endl;
+        return false;
+    }
+
+    //If the user wants to withdraw > 2^32 dollars, they can deal with the
+    //weird things that happen because no one will be withdrawing that
+    //much money from the ATM. ATMS don't even carry that much money.
+    unsigned long dollars = strtoul(parts[0].c_str(), NULL, 10);
+    unsigned long cents = strtoul(parts[1].c_str(), NULL, 10);
+    value = (uint64_t)(dollars * 100) + (uint64_t)cents;
+    return true;
 }
 
-void serializeCtsPayload(unsigned char* buf, struct cts_payload payload){
-    memcpy(buf, &payload, sizeof(payload));
+void serializeClientToServer(char* buf, const struct client_to_server* message){
+    memcpy(buf, message, sizeof(*message));
+}
+
+void deserializeServerToClient(const char* buf, struct server_to_client* message){
+    memcpy(message, buf, sizeof(*message));
 }
 
 //Gets a new nonce for communication
@@ -71,44 +89,47 @@ bool getNonce(){
     //Prepare the payload for encryption
     memset(&payload, 0, sizeof(payload));
     payload.tag = requestNonce;
-    unsigned char plaintext[sizeof(struct cts_payload) + (sizeof(struct cts_payload) % 16)];
-    memset(plaintext, 0, sizeof(plaintext));
-    serializeCtsPayload(plaintext, payload);    
-    
-    //Encrypt the payload
-    int rc = encrypt( plaintext, sizeof(plaintext),
-        encrypt_key, message.payload.payload );
-    if(rc == -1){
-        return false;    
-    }
-    
+
     //Add the sending user
     strcpy(message.src.username, user.c_str());
+
+    //Encrypt and package payload
+    int rc = enserialcrypt_cts(encrypt_key, mac_key, &payload, &message);
+    if(rc != ECODE_SUCCESS){
+        return false;
+    }
     
-    //Generate the HMAC
-    rc = genHMAC(message.payload.payload, sizeof(message.payload.payload),
-        mac_key, message.hmac.hmac);
-    if(rc == -1){
+    //Send the nonce request
+    char serialized_message[sizeof(message)];
+    serializeClientToServer(serialized_message, &message);
+    rc = write_aon(sd, serialized_message, sizeof(message));
+    if(rc != ECODE_SUCCESS){
         return false;
     }
 
-    //TODO: Send message and wait for reply
-
-    //Test code
-    /*unsigned char hmac[EVP_MAX_MD_SIZE];
-    rc = genHMAC(message.payload.payload, sizeof(message.payload.payload), mac_key, hmac);
-    cout << rc << endl;
-    for(int i = 0; i < rc; i++){
-        cout << hex << (int)hmac[i];
+    //Wait for the response
+    struct server_to_client server_message;
+    char serialized_server_message[sizeof(server_message)];
+    rc = read_aon(sd, serialized_server_message, sizeof(server_message));
+    if(rc != ECODE_SUCCESS){
+        return false;
     }
-    cout << endl;*/
-    /*memset(&plaintext, 0, sizeof(plaintext));
-    
-    rc = decrypt(message.payload.payload, sizeof(message.payload.payload), encrypt_key, plaintext);
-    cout << rc << endl;
-    struct cts_payload test;
-    memcpy(&test, plaintext, sizeof(test));
-    cout << test.tag << " " << test.destination.username << endl;*/
+
+    //Deserialize, decrypt and check HMAC
+    struct stc_payload server_payload;
+    deserializeServerToClient(serialized_server_message, &server_message);
+    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
+    if(rc != ECODE_SUCCESS){
+        return false;
+    }
+
+    //Make sure it's a valid message type
+    if(server_payload.tag != supplyNonce){
+        return false;
+    }
+
+    //Copy nonce
+    memcpy(nonce, server_payload.nonce.nonce, NONCE_SIZE);
 
     return true;
 }
@@ -208,15 +229,255 @@ void handleLogin(vector<string> tokens, unsigned short port){
 }
 
 void handleBalance(){
-    cout << "BALANCE" << endl;
+    if(!getNonce()){
+        cerr << "Failed to get a new nonce" << endl;
+        return;
+    }
+
+    struct client_to_server message;
+    memset(&message, 0, sizeof(message));
+    struct cts_payload payload;
+
+    //Prepare the payload for encryption
+    memset(&payload, 0, sizeof(payload));
+    payload.tag = requestBalance;
+    memcpy(payload.nonce.nonce, nonce, NONCE_SIZE);
+
+    //Add the sending user
+    strcpy(message.src.username, user.c_str());
+
+    //Encrypt and package payload
+    int rc = enserialcrypt_cts(encrypt_key, mac_key, &payload, &message);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Encryption failed" << endl;
+        return;
+    }
+    
+    //Send the nonce request
+    char serialized_message[sizeof(message)];
+    serializeClientToServer(serialized_message, &message);
+    rc = write_aon(sd, serialized_message, sizeof(message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to send balance request" << endl;
+        return;
+    }
+
+    //Wait for the response
+    struct server_to_client server_message;
+    char serialized_server_message[sizeof(server_message)];
+    rc = read_aon(sd, serialized_server_message, sizeof(server_message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to receive valid response" << endl;
+        return;
+    }
+
+    //Deserialize, decrypt and check HMAC
+    struct stc_payload server_payload;
+    deserializeServerToClient(serialized_server_message, &server_message);
+    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Mismatched HMAC" << endl;
+        return;
+    }
+
+    //Make sure it's a valid message type
+    if(server_payload.tag != ackBalance){
+        cerr << "Unexpected message response received" << endl;
+        return;
+    }
+
+    //Check nonce
+    if(!checkNonce(nonce, server_payload.nonce.nonce)){
+        return;
+    }
+
+    //Print balance
+    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / 100);
+    unsigned int cents = (unsigned int)(server_payload.currency.cents % 100);
+    cout << "You have $" << dollars << ".";
+    cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << endl;
+    if(server_payload.currency.cents == 0){
+        cout << "You're poor." << endl;
+    }
+    else if(server_payload.currency.cents > 900000){
+        cout << "It's over 9000." << endl;
+    }
 }
 
 void handleWithdraw(vector<string> tokens){
-    cout << "Withdraw" << endl;
+    struct cts_payload payload;
+    memset(&payload, 0, sizeof(payload));
+
+    if(tokens.size() < 2){
+        cout << "Too few arguments given" << endl;
+        return;
+    }
+    if(!convertTokenToCents(tokens[1], payload.currency.cents)){
+        return;
+    }
+
+    if(!getNonce()){
+        cerr << "Failed to get a new nonce" << endl;
+        return;
+    }
+
+    struct client_to_server message;
+    memset(&message, 0, sizeof(message));
+
+    //Prepare the payload for encryption
+    payload.tag = requestWithdrawl;
+    memcpy(payload.nonce.nonce, nonce, NONCE_SIZE);
+
+    //Add the sending user
+    strcpy(message.src.username, user.c_str());
+
+    //Encrypt and package payload
+    int rc = enserialcrypt_cts(encrypt_key, mac_key, &payload, &message);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Encryption failed" << endl;
+        return;
+    }
+    
+    //Send the nonce request
+    char serialized_message[sizeof(message)];
+    serializeClientToServer(serialized_message, &message);
+    rc = write_aon(sd, serialized_message, sizeof(message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to send withdrawl request" << endl;
+        return;
+    }
+
+    //Wait for the response
+    struct server_to_client server_message;
+    char serialized_server_message[sizeof(server_message)];
+    rc = read_aon(sd, serialized_server_message, sizeof(server_message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to receive valid response" << endl;
+        return;
+    }
+
+    //Deserialize, decrypt and check HMAC
+    struct stc_payload server_payload;
+    deserializeServerToClient(serialized_server_message, &server_message);
+    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Mismatched HMAC" << endl;
+        return;
+    }
+
+    //Make sure it's a valid message type
+    if(server_payload.tag != ackWithdrawlSuccess){
+        if(server_payload.tag == insufficentFunds){
+            cout << "Insufficient funds" << endl;
+        }
+        else{
+            cerr << "Unexpected message response received" << endl;
+        }
+        return;
+    }
+
+    //Check nonce
+    if(!checkNonce(nonce, server_payload.nonce.nonce)){
+        return;
+    }
+
+    //Print amount withdrawn
+    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / 100);
+    unsigned int cents = (unsigned int)(server_payload.currency.cents % 100);
+    cout << "You withdrew $" << dollars << ".";
+    cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << endl;
 }
 
 void handleTransfer(vector<string> tokens){
-    cout << "Transfer" << endl;
+    struct cts_payload payload;
+    memset(&payload, 0, sizeof(payload));
+
+    if(tokens.size() < 3){
+        cout << "Too few arguments given" << endl;
+        return;
+    }
+    if(!convertTokenToCents(tokens[1], payload.currency.cents)){
+        return;
+    }
+    if(tokens[2].size() >= MAX_USERNAME_SIZE){
+        cout << "Destination user is too long" << endl;
+        return;
+    }
+
+    if(!getNonce()){
+        cerr << "Failed to get a new nonce" << endl;
+        return;
+    }
+
+    struct client_to_server message;
+    memset(&message, 0, sizeof(message));
+
+    //Prepare the payload for encryption
+    payload.tag = requestTransfer;
+    strcpy(payload.destination.username, tokens[2].c_str());
+    memcpy(payload.nonce.nonce, nonce, NONCE_SIZE);
+
+    //Add the sending user
+    strcpy(message.src.username, user.c_str());
+
+    //Encrypt and package payload
+    int rc = enserialcrypt_cts(encrypt_key, mac_key, &payload, &message);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Encryption failed" << endl;
+        return;
+    }
+    
+    //Send the nonce request
+    char serialized_message[sizeof(message)];
+    serializeClientToServer(serialized_message, &message);
+    rc = write_aon(sd, serialized_message, sizeof(message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to send transfer request" << endl;
+        return;
+    }
+
+    //Wait for the response
+    struct server_to_client server_message;
+    char serialized_server_message[sizeof(server_message)];
+    rc = read_aon(sd, serialized_server_message, sizeof(server_message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to receive valid response" << endl;
+        return;
+    }
+
+    //Deserialize, decrypt and check HMAC
+    struct stc_payload server_payload;
+    deserializeServerToClient(serialized_server_message, &server_message);
+    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Mismatched HMAC" << endl;
+        return;
+    }
+
+    //Make sure it's a valid message type
+    if(server_payload.tag != ackTransferSuccess){
+        if(server_payload.tag == insufficentFunds){
+            cout << "Insufficient funds" << endl;
+        }
+        else if(server_payload.tag == ackTransferInvalidDestination){
+            cout << "Destination user was invalid" << endl;
+        }
+        else{
+            cerr << "Unexpected message response received" << endl;
+        }
+        return;
+    }
+
+    //Check nonce
+    if(!checkNonce(nonce, server_payload.nonce.nonce)){
+        return;
+    }
+
+    //Print amount withdrawn
+    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / 100);
+    unsigned int cents = (unsigned int)(server_payload.currency.cents % 100);
+    cout << "You transfered $" << dollars << ".";
+    cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << " to " << tokens[2] << endl;
 }
 
 void handleLogout(){
@@ -224,6 +485,38 @@ void handleLogout(){
         cout << "Not logged in as anyone" << endl;
         return;
     }
+
+    struct client_to_server message;
+    memset(&message, 0, sizeof(message));
+    struct cts_payload payload;
+
+    //Prepare the payload for encryption
+    memset(&payload, 0, sizeof(payload));
+    payload.tag = requestLogout;
+
+    //Add the sending user
+    strcpy(message.src.username, user.c_str());
+
+    //Encrypt and package payload
+    int rc = enserialcrypt_cts(encrypt_key, mac_key, &payload, &message);
+    if(rc != ECODE_SUCCESS){
+        cerr << "Encryption failed" << endl;
+        return;
+    }
+    
+    //Send the nonce request
+    char serialized_message[sizeof(message)];
+    serializeClientToServer(serialized_message, &message);
+    rc = write_aon(sd, serialized_message, sizeof(message));
+    if(rc != ECODE_SUCCESS){
+        cerr << "Failed to send logout request" << endl;
+        return;
+    }
+
+    //Don't wait for a response
+    connected = false;
+    user = "";
+    close(sd);
 }
 
 int main(int argc, char* argv[]){

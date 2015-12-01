@@ -39,8 +39,11 @@ error_code enserialcrypt_stc(const unsigned char* cryptkey, const unsigned char*
 error_code deserialcrypt_stc(const unsigned char* cryptkey, const unsigned char* signkey,
     const struct server_to_client* src, struct stc_payload* dst);
 
-std::vector<std::string> tokenize(std::string s);
+std::vector<std::string> tokenize(std::string s, const char* delimiter);
 std::vector<std::string> get_tokenized_line();
+
+//Returns true if the two nonces match, returns false otherwise and prints error
+bool checkNonce(const uint8_t* n1, const uint8_t* n2);
 
 /*char* serialize_uint64(uint64_t value, char* buf);
 char* deserialize_uint64(uint64_t &value, char* buf);

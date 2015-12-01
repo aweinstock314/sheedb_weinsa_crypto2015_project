@@ -4,11 +4,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <iostream>
 
 #include "constants.h"
 #include "utils.h"
 
 #define IV 0 //Constant IV for now
+
+using namespace std;
 
 // allocating descriptor get-string [with] delimiter, abandoned after deciding that fixed-length messages were a better idea
 /*
@@ -225,20 +228,19 @@ error_code verifyHMAC(const unsigned char* data, int data_len, const unsigned ch
         return ECODE_FAILURE;
     }
     // TODO: mitigate http://rdist.root.org/2010/08/05/optimized-memcmp-leaks-useful-timing-differences/
-    return memcmp(hmac, &tmp, sizeof hmac) == 0 ? ECODE_SUCCESS : ECODE_FAILURE;
+    return memcmp(hmac, &tmp, sizeof tmp) == 0 ? ECODE_SUCCESS : ECODE_FAILURE;
 }
 
-
-std::vector<std::string> tokenize(std::string s) {
+std::vector<std::string> tokenize(std::string s, const char* delimiter) {
     size_t len = s.size();
     char *saveptr, *token, *base = (char*)alloca(len+1);
     memcpy(base, s.c_str(), len);
     base[len] = 0;
     std::vector<std::string> tokens;
-    token = strtok_r(base, " ", &saveptr);
+    token = strtok_r(base, delimiter, &saveptr);
     while(token != NULL) {
         tokens.push_back(std::string(token));
-        token = strtok_r(NULL, " ", &saveptr);
+        token = strtok_r(NULL, delimiter, &saveptr);
     }
     return tokens;
 }
@@ -246,7 +248,15 @@ std::vector<std::string> tokenize(std::string s) {
 std::vector<std::string> get_tokenized_line() {
     std::string input;
     std::getline(std::cin, input);
-    return tokenize(input);
+    return tokenize(input, " ");
+}
+
+bool checkNonce(const uint8_t* n1, const uint8_t* n2){
+    if(memcmp(n1, n2, NONCE_SIZE) != 0){
+        cerr << "Nonce mismatch" << endl;
+        return false;
+    }
+    return true;
 }
 
 /*

@@ -50,7 +50,6 @@ enum stc_payload_tag {
     insufficentFunds, // for either withdrawl or transfer
     ackBalance,
     ackWithdrawlSuccess,
-    ackWithdrawlFail, // "Insufficient funds"
     ackTransferSuccess,
     ackTransferInvalidDestination, // destination user doesn't exist
 };
