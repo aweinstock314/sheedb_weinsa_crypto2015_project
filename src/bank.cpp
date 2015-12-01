@@ -1,8 +1,9 @@
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <netinet/in.h>
 #include <signal.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <thread>
 #include <unistd.h>
 
@@ -13,6 +14,7 @@ using namespace std;
 // GLOBAL VARIABLES
 int listener_socket;
 map<string, uint64_t> balances;
+mutex balance_guard;
 
 //Close socket on ^C
 void handle_control_c(int s) {
@@ -82,7 +84,10 @@ void handle_deposit(vector<string> tokens) {
         cout << "Expected 2 parameters to 'deposit'." << endl;
         return;
     }
-    cout << tokens[0] << " " << tokens[1] << " " << tokens[2] << endl;
+    string username = tokens[1];
+    uint64_t amount = strtol(tokens[2].c_str(), NULL, 10);
+    lock_guard<mutex> lock(balance_guard);
+    balances[username] += amount; // No overflow checking since shell is trusted
 }
 
 void handle_balance(vector<string> tokens) {
@@ -90,7 +95,9 @@ void handle_balance(vector<string> tokens) {
         cout << "Expected 1 parameter to 'balance'." << endl;
         return;
     }
-    cout << tokens[0] << " " << tokens[1] << endl;
+    string username = tokens[1];
+    lock_guard<mutex> lock(balance_guard);
+    cout << "Balance for user '" << username << "': " << balances[username] << " cents" << endl;
 }
 
 void bankshell() {
