@@ -61,8 +61,8 @@ void handle_connection(int fd) {
         memset(&out_payload, 0, sizeof out_payload);
         if(!(cryptkey = get_cryptkey(incoming.src.username)) ||
             !(signkey = get_signkey(incoming.src.username))) {
-            out_payload.tag = invalidUser;
-            goto reply;
+            //out_payload.tag = invalidUser;
+            goto skipreply; // if we don't have keys for the user, we can't sign a response at them.
         }
         if(deserialcrypt_cts(cryptkey, signkey, &incoming, &in_payload)) {
             out_payload.tag = invalidNonce; // technically invalid HMAC, but why leak info?
@@ -73,6 +73,8 @@ void handle_connection(int fd) {
             CRYPTO_memcmp(nonce.nonce, in_payload.nonce.nonce, sizeof nonce)) {
             out_payload.tag = invalidNonce;
             goto reply;
+        } else {
+            memcpy(out_payload.nonce.nonce, nonce.nonce, sizeof nonce);
         }
         switch(in_payload.tag) {
             case requestNonce: handle_nonce(&nonce, &out_payload); break;
