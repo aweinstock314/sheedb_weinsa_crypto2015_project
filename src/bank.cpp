@@ -61,7 +61,7 @@ void handle_balance(const char* username, stc_payload* dst) {
     lock_guard<mutex> lock(balance_guard);
     dst->currency.cents = balances[string(username)];
 }
-void handle_withdrawl(const char* username, const cts_payload* src, stc_payload* dst) {
+void handle_withdrawal(const char* username, const cts_payload* src, stc_payload* dst) {
     //Check if the user has enough money
     lock_guard<mutex> lock(balance_guard);
     if(balances[string(username)] < src->currency.cents){
@@ -71,7 +71,7 @@ void handle_withdrawl(const char* username, const cts_payload* src, stc_payload*
 
     balances[string(username)] = balances[string(username)] - src->currency.cents;
     dst->currency.cents = src->currency.cents;
-    dst->tag = ackWithdrawlSuccess;
+    dst->tag = ackWithdrawalSuccess;
 }
 void handle_transfer(const char* username, const cts_payload* src, stc_payload* dst) {
     const char* other = src->destination.username;
@@ -144,7 +144,7 @@ void handle_connection(int fd) {
         switch(in_payload.tag) {
             case requestNonce: handle_nonce(&nonce, &out_payload); break;
             case requestBalance: handle_balance(incoming.src.username, &out_payload); break;
-            case requestWithdrawl: handle_withdrawl(incoming.src.username, &in_payload, &out_payload); break;
+            case requestWithdrawal: handle_withdrawal(incoming.src.username, &in_payload, &out_payload); break;
             case requestTransfer: handle_transfer(incoming.src.username, &in_payload, &out_payload); break;
             case requestLogout: goto skip_reply; break;
         }

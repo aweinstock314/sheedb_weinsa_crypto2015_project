@@ -395,7 +395,7 @@ void handleWithdraw(vector<string> tokens){
     }
 
     //Prepare the payload for encryption
-    payload.tag = requestWithdrawl;
+    payload.tag = requestWithdrawal;
     memcpy(payload.nonce.nonce, nonce, NONCE_SIZE);
 
     //Add the sending user
@@ -405,7 +405,7 @@ void handleWithdraw(vector<string> tokens){
     SEND_REQUEST_RECV_RESPONSE
 
     //Make sure it's a valid message type
-    if(server_payload.tag != ackWithdrawlSuccess){
+    if(server_payload.tag != ackWithdrawalSuccess){
         switch(server_payload.tag){
             case insufficientFunds:
                 cout << "Insufficient funds" << endl;

@@ -12,7 +12,7 @@
 
 # Usage
 * Binaries are placed in the bin directory
-* The proxy and bank can be run from anywhere, but the atm must be run from within the bin directory ("./atm") in order for it to find the cards
+* The proxy and bank can be run from anywhere, but the ATM must be run from within the bin directory ("./atm") in order for it to find the cards
 * Cleaning and recompiling will regenerate PINs and keys. If you forget your current PINs and don't want to recompile, the first four characters in *.card are the PINs
 
 
@@ -39,7 +39,7 @@ The protocol uses three forms of cryptography: an HMAC for data integrity, encry
 
 ## The nonce uses:
 * 128 bits from /dev/urandom
-* Is calculated for every interaction between the atm and bank
+* Is calculated for every interaction between the ATM and bank
 * Is cleared from the bank after every interaction
 
 A mismatched nonce or HMAC on either side causes the current action to be aborted but keeps the connection intact
@@ -55,7 +55,7 @@ The protocol consists of two types of message structs, client-to-server and serv
 ## The unencrypted client-to-server payload consists of:
 * Tag describing what type of message it is (integer)
 * Nonce (byte array)
-* Currency in cents for withdrawl/transfer (uint64)
+* Currency in cents for withdrawal/transfer (uint64)
 * Destination user for transfer (byte array)
 
 ## Server-to-client messages consist of:
@@ -67,7 +67,7 @@ The protocol consists of two types of message structs, client-to-server and serv
 * Nonce (byte array)
 * Currency in cents (uint64)
 
-Messages are also preceeded by a synchronization sequence
+Messages are also preceded by a synchronization sequence
 
 # Protocol Outline
 1.  Client creates a nonce request payload
@@ -87,7 +87,7 @@ Messages are also preceeded by a synchronization sequence
 15.  Server adds nonce to payload and any relevant currency information
 16.  Server encrypts payload, generates HMAC, and sends synchronization sequence and message to client
 17.  Server clears nonce
-18.  client receives message
+18.  Client receives message
 19.  Client checks HMAC and decrypts payload
 20.  Client checks nonce
 21.  Client displays results of action to user

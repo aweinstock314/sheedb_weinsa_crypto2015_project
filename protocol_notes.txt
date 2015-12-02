@@ -43,17 +43,17 @@ data ClientToServer = CTS Hmac Username CTSPayload
 data Currency = Cents Word64
 data CTSPayload = RequestNonce
                 | RequestBalance Nonce
-                | RequestWithdrawl Nonce Currency
+                | RequestWithdrawal Nonce Currency
                 | RequestTransfer Nonce Currency Username
                 | Logout
 data ServerToClient = STC Hmac STCPayload
 data STCPayload = SupplyNonce Nonce
                 | InvalidNonce Nonce
                 | InvalidUser Nonce -- only for the initiator of a request
-                | InsufficentFunds Nonce -- for either withdrawl or transfer
+                | InsufficentFunds Nonce -- for either withdrawal or transfer
                 | AckBalance Nonce Currency
-                | AckWithdrawlSuccess Nonce Currency
-                | AckWithdrawlFail Nonce -- "Insufficient funds"
+                | AckWithdrawalSuccess Nonce Currency
+                | AckWithdrawalFail Nonce -- "Insufficient funds"
                 | AckTransferSuccess Nonce
                 | AckTransferInvalidDestination Nonce -- destination user doesn't exist
 -----

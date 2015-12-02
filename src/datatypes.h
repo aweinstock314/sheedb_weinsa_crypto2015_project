@@ -17,7 +17,7 @@ struct currency_t { uint64_t cents; };
 enum cts_payload_tag {
     requestNonce = 0,
     requestBalance,
-    requestWithdrawl,
+    requestWithdrawal,
     requestTransfer,
     requestLogout
 };
@@ -47,9 +47,9 @@ enum stc_payload_tag {
     supplyNonce = 0,
     invalidNonce,
     invalidUser, // only for the initiator of a request
-    insufficientFunds, // for either withdrawl or transfer
+    insufficientFunds, // for either withdrawal or transfer
     ackBalance,
-    ackWithdrawlSuccess,
+    ackWithdrawalSuccess,
     ackTransferSuccess,
     ackTransferInvalidDestination, // destination user doesn't exist
     ackTransferWouldOverflow,
