@@ -39,10 +39,23 @@ const unsigned char* get_signkey(const char* name) {
     return 0;
 }
 
+// handle_nonce populates the nonce, all the others zero the nonce after checking it
+void handle_nonce(nonce_t* nonce, stc_payload* dst) {
+}
+void handle_balance(nonce_t* nonce, const char* username, const cts_payload* src, stc_payload* dst) {
+}
+void handle_withdrawl(nonce_t* nonce, const char* username, const cts_payload* src, stc_payload* dst) {
+}
+void handle_transfer(nonce_t* nonce, const char* username, const cts_payload* src, stc_payload* dst) {
+}
+
 void handle_connection(int fd) {
     //cout << "handle_connection(" << fd << ")" << endl;
     cts_payload in_payload;
     client_to_server incoming;
+    stc_payload out_payload;
+    server_to_client outgoing;
+    nonce_t nonce;
     const unsigned char *cryptkey, *signkey;
     do {
         if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { break; }
@@ -50,9 +63,18 @@ void handle_connection(int fd) {
         if(!(cryptkey = get_cryptkey(incoming.src.username))) { break; }
         if(!(signkey = get_signkey(incoming.src.username))) { break; }
         if(deserialcrypt_cts(cryptkey, signkey, &incoming, &in_payload)) { break; }
-        cout << endl;
-        hexdump(1, &in_payload, sizeof in_payload);
-        cout << endl;
+        //cout << endl; hexdump(1, &in_payload, sizeof in_payload); cout << endl;
+        switch(in_payload.tag) {
+            case requestNonce: handle_nonce(&nonce, &out_payload); break;
+            case requestBalance: handle_balance(incoming.src.username, &in_payload, &out_payload); break;
+            case requestWithdrawl: handle_withdrawl(incoming.src.username, &in_payload, &out_payload); break;
+            case requestTransfer: handle_transfer(incoming.src.username, &in_payload, &out_payload); break;
+            case requestLogout: goto skip_reply; break;
+        }
+        reply:
+        if(enserialcrypt_stc(cryptkey, signkey, &out_payload, &outgoing)) { break; }
+        if(write_synchronized(fd, (char*)&outgoing, sizeof outgoing)) { break; }
+        skip_reply:
     } while(in_payload.tag != requestLogout);
     close(fd);
 }
