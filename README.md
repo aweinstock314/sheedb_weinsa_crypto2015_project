@@ -32,9 +32,11 @@ The protocol uses three forms of cryptography: an HMAC for data integrity, encry
 * SHA-256 as the hash function
 * OpenSSL's EVP functions for the actual calculations
 * Is calculated on the encrypted data
+
 ## The encryption uses:
 * AES with a 128 bit key
 * PKCS padding enabled
+
 ## The nonce uses:
 * 128 bits from /dev/urandom
 * Is calculated for every interaction between the atm and bank
