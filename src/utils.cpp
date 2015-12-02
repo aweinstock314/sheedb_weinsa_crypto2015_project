@@ -1,10 +1,11 @@
-#include <openssl/evp.h>
 #include <alloca.h>
+#include <iomanip>
+#include <iostream>
+#include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <iostream>
 
 #include "constants.h"
 #include "utils.h"
@@ -321,5 +322,11 @@ void hexdump(int fd, const void* buffer, size_t count) {
 void print_prompt() {
     cout << "> ";
     cout.flush();
+}
+
+void output_dollars(std::ostream& o, currency_t amount) {
+    uint64_t dollars = (uint64_t)(amount.cents / CENTS_PER_DOLLAR);
+    unsigned int cents = (unsigned int)(amount.cents % CENTS_PER_DOLLAR);
+    o << "$" << dollars << "." << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase);
 }
 

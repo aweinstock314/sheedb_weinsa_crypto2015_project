@@ -365,10 +365,7 @@ void handleBalance(){
     }
 
     //Print balance
-    uint64_t dollars = (uint64_t)(server_payload.currency.cents / CENTS_PER_DOLLAR);
-    unsigned int cents = (unsigned int)(server_payload.currency.cents % CENTS_PER_DOLLAR);
-    cout << "You have $" << dollars << ".";
-    cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << endl;
+    cout << "You have "; output_dollars(cout, server_payload.currency); cout << endl;
     if(server_payload.currency.cents == 0){
         cout << "You're poor." << endl;
     }
@@ -422,10 +419,7 @@ void handleWithdraw(vector<string> tokens){
     }
 
     //Print amount withdrawn
-    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / CENTS_PER_DOLLAR);
-    unsigned int cents = (unsigned int)(server_payload.currency.cents % CENTS_PER_DOLLAR);
-    cout << "You withdrew $" << dollars << ".";
-    cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << endl;
+    cout << "You withdrew "; output_dollars(cout, server_payload.currency); cout << endl;
 }
 
 void handleTransfer(vector<string> tokens){
@@ -484,10 +478,7 @@ void handleTransfer(vector<string> tokens){
     }
 
     //Print amount withdrawn
-    uint64_t dollars = (uint64_t)floor(server_payload.currency.cents / CENTS_PER_DOLLAR);
-    unsigned int cents = (unsigned int)(server_payload.currency.cents % CENTS_PER_DOLLAR);
-    cout << "You transfered $" << dollars << ".";
-    cout << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase) << " to " << tokens[2] << endl;
+    cout << "You transfered "; output_dollars(cout, server_payload.currency); cout << endl;
 }
 
 void handleLogout(){

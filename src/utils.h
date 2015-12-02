@@ -63,4 +63,6 @@ char hexdigit(char nybble);
 void hexdump(int fd, const void* buffer, size_t count);
 void print_prompt();
 
+void output_dollars(std::ostream& o, currency_t amount);
+
 #endif

@@ -240,7 +240,11 @@ void handle_balance(vector<string> tokens) {
     }
     string username = tokens[1];
     lock_guard<mutex> lock(balance_guard);
-    cout << "Balance for user '" << username << "': " << balances[username] << " cents" << endl;
+    currency_t tmp;
+    tmp.cents = balances[username];
+    cout << "Balance for user '" << username << "': ";
+    output_dollars(cout, tmp);
+    cout << endl;
 }
 
 void bankshell() {
