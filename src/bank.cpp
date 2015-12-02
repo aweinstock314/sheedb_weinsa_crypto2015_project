@@ -129,7 +129,6 @@ void handle_connection(int fd) {
             }*/
             break;
         }
-        cout << "Read something" << endl;
         memset(&out_payload, 0, sizeof out_payload);
         if(!(cryptkey = get_cryptkey(incoming.src.username)) ||
             !(signkey = get_signkey(incoming.src.username))) {

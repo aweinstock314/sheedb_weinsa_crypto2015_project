@@ -114,6 +114,7 @@ Menu Functions
 void printMenu(){
     cout << endl;
     cout << "Please enter your desired command" << endl;
+    cout << "Make sure amounts are entered in the form dollars.cents" << endl;
     cout << "login [username]" << endl;
     cout << "balance" << endl;
     cout << "withdraw [amount]" << endl;
