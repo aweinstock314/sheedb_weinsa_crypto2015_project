@@ -66,9 +66,9 @@ void handle_connection(int fd) {
         //cout << endl; hexdump(1, &in_payload, sizeof in_payload); cout << endl;
         switch(in_payload.tag) {
             case requestNonce: handle_nonce(&nonce, &out_payload); break;
-            case requestBalance: handle_balance(incoming.src.username, &in_payload, &out_payload); break;
-            case requestWithdrawl: handle_withdrawl(incoming.src.username, &in_payload, &out_payload); break;
-            case requestTransfer: handle_transfer(incoming.src.username, &in_payload, &out_payload); break;
+            case requestBalance: handle_balance(&nonce, incoming.src.username, &in_payload, &out_payload); break;
+            case requestWithdrawl: handle_withdrawl(&nonce, incoming.src.username, &in_payload, &out_payload); break;
+            case requestTransfer: handle_transfer(&nonce, incoming.src.username, &in_payload, &out_payload); break;
             case requestLogout: goto skip_reply; break;
         }
         reply:
