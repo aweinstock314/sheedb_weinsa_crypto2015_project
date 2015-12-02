@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <cerrno>
 
 #include "metacard.h"
 #include "utils.h"
@@ -110,19 +111,25 @@ void handle_connection(int fd) {
     do {
         if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { 
             //Check if was due to timeout or actual error
-            /*if(errno == EAGAIN || errno == EWOULDBLOCK || errno == ETIMEDOUT){
+            /*cout << "in here" << endl;
+            if(errno == EAGAIN || errno == EWOULDBLOCK || errno == ETIMEDOUT){
                 //Check to see if socket is still open
                 if( write(fd, "0", 1) == -1 ){
                     //Socket dead
                     cout << "Socket died without logout message" << endl;
                     break;
                 }
-                continue;
+                cout << "continuing" << endl;
+                cout << strerror(errno) << endl;
+                continue;                
             } else{
+                cout << strerror(errno) << endl;
+                cout << "breaking here" << endl;
                 break;
             }*/
             break;
         }
+        cout << "Read something" << endl;
         memset(&out_payload, 0, sizeof out_payload);
         if(!(cryptkey = get_cryptkey(incoming.src.username)) ||
             !(signkey = get_signkey(incoming.src.username))) {
