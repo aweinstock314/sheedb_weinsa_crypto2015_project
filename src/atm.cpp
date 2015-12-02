@@ -18,13 +18,14 @@ ATM program for the crypto project
 #include <openssl/evp.h>
 #include <cmath>
 #include <iomanip>
+#include <cerrno>
+#include <time.h>
 
 #include "constants.h"
 #include "utils.h"
 #include "datatypes.h"
 
 #define CARD_PATH "../cards/"
-#define TIMEOUT 5
 
 using namespace std;
 
@@ -70,6 +71,7 @@ Macros
     rc = write_synchronized(sd, serialized_message, sizeof(message)); \
     if(rc != ECODE_SUCCESS){ \
         cerr << "Failed to send request" << endl; \
+        checkConnection(); \
         return; \
     }
 
@@ -78,6 +80,8 @@ Macros
     rc = read_synchronized(sd, serialized_server_message, sizeof(server_message)); \
     if(rc != ECODE_SUCCESS){ \
         cerr << "Failed to receive valid response" << endl; \
+        checkConnection(); \
+        checkTimeout(); \
         return; \
     } \
     deserializeServerToClient(serialized_server_message, &server_message);
@@ -121,6 +125,32 @@ void printMenu(){
 /*##############################################################################
 Misc Functions
 ##############################################################################*/
+
+void closeConnection(){
+    connected = false;
+    user = "";
+    close(sd);
+}
+
+void connectionLost(){
+    cout << "Connection lost. Logging out" << endl;
+    closeConnection();
+}
+
+//Checks whether a function failed due to a closed connection
+//If so, logs out
+void checkConnection(){
+    if(errno == EPIPE){
+        connectionLost();
+    }
+}
+
+//Checks whether a read call timed out
+void checkTimeout(){
+    if(errno == EAGAIN || errno == EWOULDBLOCK){
+        cout << "Timed out waiting for response" << endl; 
+    }
+}
 
 bool convertTokenToCents(string token, uint64_t &value){
     vector<string> parts = tokenize(token, ".");
@@ -167,6 +197,7 @@ bool getNonce(){
     serializeClientToServer(serialized_message, &message);
     rc = write_synchronized(sd, serialized_message, sizeof(message));
     if(rc != ECODE_SUCCESS){
+        checkConnection();
         return false;
     }
 
@@ -176,6 +207,8 @@ bool getNonce(){
     //Wait for the response
     rc = read_synchronized(sd, serialized_server_message, sizeof(server_message));
     if(rc != ECODE_SUCCESS){
+        checkConnection();
+        checkTimeout();
         return false;
     }
 
@@ -264,12 +297,14 @@ void handleLogin(vector<string> tokens, unsigned short port){
     }
     cout << "PIN accepted. Connecting to bank." << endl;
 
+    //Create socket
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if( sd < 0 ){
         perror("Failed to create socket descriptor");
         return;
     }
 
+    //Connect to proxy
     struct sockaddr_in sock;
     memset(&sock, 0, sizeof sock);
     sock.sin_family = AF_INET;
@@ -278,6 +313,16 @@ void handleLogin(vector<string> tokens, unsigned short port){
 
     if( connect(sd, (struct sockaddr*) &sock, sizeof(sock)) < 0 ){
         perror("Failed to connect to proxy");
+        close(sd);
+        return;
+    }
+
+    //Set the socket to have a timeout
+    struct timeval tv;
+    tv.tv_sec = TIMEOUT_SECONDS;
+    tv.tv_usec = TIMEOUT_MICROSECONDS;
+    if( setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (char*) &tv, sizeof(tv)) != 0 ){
+        perror("Failed to set timeout on socket");
         close(sd);
         return;
     }
@@ -462,9 +507,8 @@ void handleLogout(){
     SER_SEND_CTS
 
     //Don't wait for a response
-    connected = false;
-    user = "";
-    close(sd);
+    closeConnection();
+    cout << "Logged out" << endl;
 }
 
 int main(int argc, char* argv[]){
@@ -472,6 +516,9 @@ int main(int argc, char* argv[]){
         cout << "Usage is <port to connect to>" << endl;
         return 1;
     }
+
+    //Handle reads/writes to closed sockets killing program
+    signal(SIGPIPE, SIG_IGN);
 
     //Get the port
     unsigned short port = (unsigned short) atoi(argv[1]);

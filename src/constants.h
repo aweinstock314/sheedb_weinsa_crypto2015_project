@@ -11,5 +11,7 @@
 #define PADDING_FUDGE_FACTOR (2 * AES_BLOCKSIZE_BYTES) //Overallocate to be safe
 #define CENTS_PER_DOLLAR 100
 #define PADDING(s) (AES_BLOCKSIZE_BYTES - (sizeof(struct s) % AES_BLOCKSIZE_BYTES))
+#define TIMEOUT_SECONDS 5
+#define TIMEOUT_MICROSECONDS 0
 
 #endif
