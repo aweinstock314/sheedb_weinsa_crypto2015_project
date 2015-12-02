@@ -32,7 +32,7 @@ struct cts_payload {
 
 //Encrypted client to server message contents
 struct cts_payload_enc {
-    unsigned char payload[sizeof(struct cts_payload) + PADDING_FUDGE_FACTOR];
+    unsigned char payload[sizeof(struct cts_payload) + PADDING(cts_payload)];
 };
 
 //Client to server message
@@ -63,7 +63,7 @@ struct stc_payload {
 
 //Encrypted server to client message contents
 struct stc_payload_enc {
-    unsigned char payload[sizeof(struct stc_payload) + PADDING_FUDGE_FACTOR];
+    unsigned char payload[sizeof(struct stc_payload) + PADDING(stc_payload)];
 };
 
 //Server to client message

@@ -10,5 +10,6 @@
 #define AES_BLOCKSIZE_BYTES (128/8) //16 byte block size
 #define PADDING_FUDGE_FACTOR (2 * AES_BLOCKSIZE_BYTES) //Overallocate to be safe
 #define CENTS_PER_DOLLAR 100
+#define PADDING(s) (AES_BLOCKSIZE_BYTES - (sizeof(struct s) % AES_BLOCKSIZE_BYTES))
 
 #endif

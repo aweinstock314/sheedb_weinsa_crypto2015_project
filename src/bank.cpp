@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <thread>
 #include <unistd.h>
+#include <string.h>
 
 #include "metacard.h"
 #include "utils.h"
@@ -24,13 +25,35 @@ void handle_control_c(int s) {
     exit(EXIT_SUCCESS);
 }
 
+const unsigned char* get_cryptkey(const char* name) {
+    if(!strcmp(name, "Alice")) { return Alice_cryptkey; }
+    if(!strcmp(name, "Bob")) { return Bob_cryptkey; }
+    if(!strcmp(name, "Eve")) { return Eve_cryptkey; }
+    return 0;
+}
+
+const unsigned char* get_signkey(const char* name) {
+    if(!strcmp(name, "Alice")) { return Alice_signkey; }
+    if(!strcmp(name, "Bob")) { return Bob_signkey; }
+    if(!strcmp(name, "Eve")) { return Eve_signkey; }
+    return 0;
+}
+
 void handle_connection(int fd) {
     //cout << "handle_connection(" << fd << ")" << endl;
-    /*cts_payload in_payload;
+    cts_payload in_payload;
     client_to_server incoming;
+    const unsigned char *cryptkey, *signkey;
     do {
         if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { break; }
-    } while(in_payload.tag != requestLogout);*/
+        // TODO: handle errors with replies
+        if(!(cryptkey = get_cryptkey(incoming.src.username))) { break; }
+        if(!(signkey = get_signkey(incoming.src.username))) { break; }
+        if(deserialcrypt_cts(cryptkey, signkey, &incoming, &in_payload)) { break; }
+        cout << endl;
+        hexdump(1, &in_payload, sizeof in_payload);
+        cout << endl;
+    } while(in_payload.tag != requestLogout);
     close(fd);
 }
 

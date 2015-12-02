@@ -234,6 +234,7 @@ int genHMAC(const unsigned char* data, int data_len, const unsigned char* key, u
 
 error_code verifyHMAC(const unsigned char* data, int data_len, const unsigned char* key, const unsigned char* hmac) {
     struct hmac_t tmp;
+    memset(&tmp, 0, sizeof tmp);
     if(genHMAC(data, data_len, key, (unsigned char*)&tmp) < 0) {
         return ECODE_FAILURE;
     }
