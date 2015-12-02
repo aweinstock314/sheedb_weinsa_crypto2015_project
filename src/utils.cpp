@@ -98,23 +98,13 @@ error_code send_synchronize(int fd) {
 }
 
 //High level function for calling read_aon and recv_synchronize
-error_code read_synchronize(int fd, char* buf, size_t count){
-    error_code ret = read_aon(fd, buf, count);
-    if(ret != ECODE_SUCCESS){
-        return ret;
-    }
-    ret = recv_synchronize(fd);
-    return ret;
+error_code read_synchronized(int fd, char* buf, size_t count){
+    return recv_synchronize(fd) ? ECODE_FAILURE : read_aon(fd, buf, count);
 }
 
 //High level function for calling write_aon and send_synchronize
-error_code write_synchronize(int fd, const char* buf, size_t count){
-    error_code ret = write_aon(fd, buf, count);
-    if(ret != ECODE_SUCCESS){
-        return ret;
-    }
-    ret = send_synchronize(fd);
-    return ret;
+error_code write_synchronized(int fd, const char* buf, size_t count){
+    return send_synchronize(fd) ? ECODE_FAILURE : write_aon(fd, buf, count)
 }
 
 //Encrypts using 128 bit AES
