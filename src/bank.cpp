@@ -11,22 +11,15 @@
 #include <fcntl.h>
 #include <cerrno>
 
+#include "ctrlc_handler.h"
 #include "metacard.h"
 #include "utils.h"
 
 using namespace std;
 
 // GLOBAL VARIABLES
-int listener_socket;
 map<string, uint64_t> balances;
 mutex balance_guard;
-
-//Close socket on ^C
-void handle_control_c(int s) {
-    (void)s; // silence -Wunused-parameter
-    close(listener_socket);
-    exit(EXIT_SUCCESS);
-}
 
 const unsigned char* get_cryptkey(const char* name) {
     if(!strcmp(name, "Alice")) { return Alice_cryptkey; }
@@ -168,12 +161,16 @@ void handle_connection(int fd) {
 
 int bindloop(unsigned short listen_port) {
     //Create listener socket
-    listener_socket = socket( AF_INET, SOCK_STREAM, 0 );
+    int listener_socket = socket( AF_INET, SOCK_STREAM, 0 );
     if ( listener_socket < 0 ) {
         cerr << "Socket creation failed" << endl;
         return EXIT_FAILURE;
     }
-    signal(SIGINT, &handle_control_c);
+    //Close socket on ^C
+    CtrlCHandler::add_handler(std::function<void()>([=]() {
+        cout << "Closing fd " << listener_socket << endl;
+        close(listener_socket);
+    }));
 
     //Bind socket
     struct sockaddr_in server;
@@ -285,6 +282,7 @@ int main(int argc, char** argv) {
 
     //Handle reads/writes to closed sockets killing program
     signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT, &handle_control_c);
 
     // Get ports
     unsigned short listen_port = (unsigned short) atoi(argv[1]);

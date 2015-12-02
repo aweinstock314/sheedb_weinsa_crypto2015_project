@@ -15,6 +15,7 @@ Derived from code at http://www.cs.rpi.edu/~goldsd/docs/spring2015-csci4210/serv
 #include <unistd.h>
 
 #include "constants.h"
+#include "ctrlc_handler.h"
 
 #define MAX_EVENTS 2
 #define NUM_BYTES_FORWARD 1024
@@ -23,14 +24,6 @@ using namespace std;
 
 //Evil global variables because it's simplest to do it this way
 unsigned short send_port;
-int listener_socket;
-
-//Close socket on ^C
-void handle_control_c(int s){
-    (void)s; // silence -Wunused-parameter
-    close(listener_socket);
-    exit(EXIT_SUCCESS);
-}
 
 //Forwards data from one socket to the other
 int forwardData(int in_sd, int out_sd){
@@ -155,18 +148,24 @@ int main(int argc, char* argv[]){
         cout << "Proxy takes arguments <port to listen for atms> <port to connect to bank>" << endl;
         return EXIT_FAILURE;
     }
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT, &handle_control_c);
 
     //Get ports
     unsigned short listen_port = (unsigned short) atoi(argv[1]);
     send_port = (unsigned short) atoi(argv[2]);
 
     //Create listener socket
-    listener_socket = socket( AF_INET, SOCK_STREAM, 0 );
+    int listener_socket = socket( AF_INET, SOCK_STREAM, 0 );
     if ( listener_socket < 0 ){
         cerr << "Socket creation failed" << endl;
         return EXIT_FAILURE;
     }
-    signal(SIGINT, &handle_control_c);
+    //Close socket on ^C
+    CtrlCHandler::add_handler(std::function<void()>([=]() {
+        cout << "Closing fd " << listener_socket << endl;
+        close(listener_socket);
+    }));
 
     //Bind socket
     struct sockaddr_in server;
