@@ -46,6 +46,7 @@ void handle_nonce(nonce_t* nonce, stc_payload* dst) {
     int fd = open("/dev/urandom", O_RDONLY);
     char new_nonce[NONCE_SIZE];
     int rc = read(fd, new_nonce, NONCE_SIZE);
+    close(fd);
     if(rc != NONCE_SIZE){
         cerr << "/dev/urandom read failed" << endl;
         exit(EXIT_FAILURE);
@@ -107,7 +108,21 @@ void handle_connection(int fd) {
     nonce_t nonce;
     const unsigned char *cryptkey, *signkey;
     do {
-        if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { break; }
+        if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { 
+            //Check if was due to timeout or actual error
+            /*if(errno == EAGAIN || errno == EWOULDBLOCK || errno == ETIMEDOUT){
+                //Check to see if socket is still open
+                if( write(fd, "0", 1) == -1 ){
+                    //Socket dead
+                    cout << "Socket died without logout message" << endl;
+                    break;
+                }
+                continue;
+            } else{
+                break;
+            }*/
+            break;
+        }
         memset(&out_payload, 0, sizeof out_payload);
         if(!(cryptkey = get_cryptkey(incoming.src.username)) ||
             !(signkey = get_signkey(incoming.src.username))) {
@@ -177,6 +192,16 @@ int bindloop(unsigned short listen_port) {
             continue;
         }
 
+        //Set the socket to have a timeout
+        /*struct timeval tv;
+        tv.tv_sec = SERVER_TIMEOUT_SECONDS;
+        tv.tv_usec = TIMEOUT_MICROSECONDS;
+        if( setsockopt(atm_sd, SOL_SOCKET, SO_RCVTIMEO, (char*) &tv, sizeof(tv)) != 0 ){
+            perror("Failed to set timeout on socket");
+            close(atm_sd);
+            continue;
+        }*/
+
         thread client_thread(handle_connection, atm_sd);
         client_thread.detach();
     }
@@ -242,6 +267,9 @@ int main(int argc, char** argv) {
         cout << "Usage: " << argv[0] << " LISTEN_PORT" << endl;
         return EXIT_FAILURE;
     }
+
+    //Handle reads/writes to closed sockets killing program
+    signal(SIGPIPE, SIG_IGN);
 
     // Get ports
     unsigned short listen_port = (unsigned short) atoi(argv[1]);
