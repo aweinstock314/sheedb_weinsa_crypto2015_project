@@ -64,5 +64,6 @@ void hexdump(int fd, const void* buffer, size_t count);
 void print_prompt();
 
 void output_dollars(std::ostream& o, currency_t amount);
+bool convertTokenToCents(std::string token, uint64_t &value);
 
 #endif

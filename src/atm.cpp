@@ -114,7 +114,7 @@ Menu Functions
 void printMenu(){
     cout << endl;
     cout << "Please enter your desired command" << endl;
-    cout << "Make sure amounts are entered in the form dollars.cents" << endl;
+    cout << "Make sure amounts are entered in the form dollars.cents without a dollar sign" << endl;
     cout << "login [username]" << endl;
     cout << "balance" << endl;
     cout << "withdraw [amount]" << endl;
@@ -151,22 +151,6 @@ void checkTimeout(){
     if(errno == EAGAIN || errno == EWOULDBLOCK || errno == ETIMEDOUT){
         cout << "Timed out waiting for response" << endl; 
     }
-}
-
-bool convertTokenToCents(string token, uint64_t &value){
-    vector<string> parts = tokenize(token, ".");
-    if(parts.size() != 2){
-        cout << "Invalid currency input" << endl;
-        return false;
-    }
-
-    //If the user wants to withdraw > 2^32 dollars, they can deal with the
-    //weird things that happen because no one will be withdrawing that
-    //much money from the ATM. ATMS don't even carry that much money.
-    unsigned long dollars = strtoul(parts[0].c_str(), NULL, 10);
-    unsigned long cents = strtoul(parts[1].c_str(), NULL, 10);
-    value = (uint64_t)(dollars * CENTS_PER_DOLLAR) + (uint64_t)cents;
-    return true;
 }
 
 void serializeClientToServer(char* buf, const struct client_to_server* message){

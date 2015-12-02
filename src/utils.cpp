@@ -330,3 +330,18 @@ void output_dollars(std::ostream& o, currency_t amount) {
     o << "$" << dollars << "." << setfill('0') << setw(2) << cents << resetiosflags(ios::showbase);
 }
 
+bool convertTokenToCents(string token, uint64_t &value){
+    vector<string> parts = tokenize(token, ".");
+    if(parts.size() != 2){
+        cout << "Invalid currency input" << endl;
+        return false;
+    }
+
+    //If the user wants to withdraw > 2^32 dollars, they can deal with the
+    //weird things that happen because no one will be withdrawing that
+    //much money from the ATM. ATMS don't even carry that much money.
+    unsigned long dollars = strtoul(parts[0].c_str(), NULL, 10);
+    unsigned long cents = strtoul(parts[1].c_str(), NULL, 10);
+    value = (uint64_t)(dollars * CENTS_PER_DOLLAR) + (uint64_t)cents;
+    return true;
+}

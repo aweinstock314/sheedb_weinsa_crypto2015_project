@@ -216,6 +216,7 @@ int bindloop(unsigned short listen_port) {
 void print_bankshell_menu() {
     cout << endl;
     cout << "Please enter your desired command" << endl;
+    cout << "Be sure to enter amounts in the format dollars.cents without a dollar sign" << endl;
     cout << "deposit [username] [amount]" << endl;
     cout << "balance [username]" << endl;
     cout << endl;
@@ -227,7 +228,11 @@ void handle_deposit(vector<string> tokens) {
         return;
     }
     string username = tokens[1];
-    uint64_t amount = strtol(tokens[2].c_str(), NULL, 10);
+    //uint64_t amount = strtol(tokens[2].c_str(), NULL, 10);
+    uint64_t amount;
+    if(!convertTokenToCents(tokens[2], amount)){
+        return;
+    }
     lock_guard<mutex> lock(balance_guard);
     balances[username] += amount; // No overflow checking since shell is trusted
 }
