@@ -140,14 +140,14 @@ void connectionLost(){
 //Checks whether a function failed due to a closed connection
 //If so, logs out
 void checkConnection(){
-    if(errno == EPIPE){
+    if(errno == EPIPE || errno == EINTR || errno == ECONNRESET || errno == ENOTCONN){
         connectionLost();
     }
 }
 
 //Checks whether a read call timed out
 void checkTimeout(){
-    if(errno == EAGAIN || errno == EWOULDBLOCK){
+    if(errno == EAGAIN || errno == EWOULDBLOCK || errno == ETIMEDOUT){
         cout << "Timed out waiting for response" << endl; 
     }
 }
@@ -406,11 +406,12 @@ void handleWithdraw(vector<string> tokens){
 
     //Make sure it's a valid message type
     if(server_payload.tag != ackWithdrawlSuccess){
-        if(server_payload.tag == insufficentFunds){
-            cout << "Insufficient funds" << endl;
-        }
-        else{
-            cerr << "Unexpected message response received" << endl;
+        switch(server_payload.tag){
+            case insufficientFunds:
+                cout << "Insufficient funds" << endl;
+                break;
+            default:
+                cerr << "Unexpected message response received" << endl;
         }
         return;
     }
@@ -461,14 +462,18 @@ void handleTransfer(vector<string> tokens){
 
     //Make sure it's a valid message type
     if(server_payload.tag != ackTransferSuccess){
-        if(server_payload.tag == insufficentFunds){
-            cout << "Insufficient funds" << endl;
-        }
-        else if(server_payload.tag == ackTransferInvalidDestination){
-            cout << "Destination user was invalid" << endl;
-        }
-        else{
-            cerr << "Unexpected message response received" << endl;
+        switch(server_payload.tag){
+            case insufficientFunds:
+                cout << "Insufficient funds" << endl;
+                break;
+            case ackTransferInvalidDestination:
+                cout << "Destination user was invalid" << endl;
+                break;
+            case ackTransferWouldOverflow:
+                cout << "That much money would cause problems for that person's account" << endl;
+                break;
+            default:
+                cerr << "Unexpected message response received" << endl;
         }
         return;
     }
@@ -528,6 +533,7 @@ int main(int argc, char* argv[]){
     while(true){
         printMenu();
         prompt:
+        print_prompt();
         tokens = get_tokenized_line();
         if(tokens.size() == 0){
             goto prompt;
