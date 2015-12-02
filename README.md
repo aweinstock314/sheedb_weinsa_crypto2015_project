@@ -6,6 +6,16 @@ Authors:
 - Brian Sheedy
 - Avi Weinstock
 
+Installation and Compilation
+    Run "./bootstrap.sh && make"
+    If at any point you need to recompile, run "make clean && make"
+
+Usage
+    Binaries are placed in the bin directory
+    The proxy and bank can be run from anywhere, but the atm must be run from within the bin directory ("./atm") in order for it to find the cards
+    Cleaning and recompiling will regenerate PINs and keys. If you forget your current PINs and don't want to recompile, the first four characters in *.card are the PINs
+
+
 ```
 22:18:13 <+aweinstock> Unix-Dude: what are the requirements for the "protocol specification"?
 22:18:27 <+aweinstock> (i.e. do we have the code the entire system again in English?)
