@@ -4,7 +4,6 @@ ATM program for the crypto project
 
 #include <sys/socket.h>
 #include <iostream>
-//#include <thread>
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>
@@ -65,6 +64,45 @@ Macros
         return; \
     }
 
+//Serialize and send a cts message
+#define SER_SEND_CTS \
+    serializeClientToServer(serialized_message, &message); \
+    rc = write_synchronized(sd, serialized_message, sizeof(message)); \
+    if(rc != ECODE_SUCCESS){ \
+        cerr << "Failed to send request" << endl; \
+        return; \
+    }
+
+//Receives and deserializes a cts message
+#define RECV_DES_STC \
+    rc = read_synchronized(sd, serialized_server_message, sizeof(server_message)); \
+    if(rc != ECODE_SUCCESS){ \
+        cerr << "Failed to receive valid response" << endl; \
+        return; \
+    } \
+    deserializeServerToClient(serialized_server_message, &server_message);
+
+//Checks HMAC, decrypts and unpacks stc payload
+#define HMAC_DEC_UNPACK_STC \
+    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload); \
+    if(rc != ECODE_SUCCESS){ \
+        cerr << "Mismatched HMAC" << endl; \
+        return; \
+    }
+
+//Handles all the encryption, sending, receiving, etc. that's the same in all actions
+#define SEND_REQUEST_RECV_RESPONSE \
+    /*Encrypt and package cts payload into cts message*/ \
+    ENC_PACK_CTS \
+    /*Serialize and send cts message*/ \
+    SER_SEND_CTS \
+    /*Initialize stc structs and arrays*/ \
+    INIT_STC \
+    /*Get response from bank and deserialize the message*/ \
+    RECV_DES_STC \
+    /*Check HMAC, decrypt, and unpack stc payload*/ \
+    HMAC_DEC_UNPACK_STC
+
 /*##############################################################################
 Menu Functions
 ##############################################################################*/
@@ -110,7 +148,6 @@ void deserializeServerToClient(const char* buf, struct server_to_client* message
 
 //Gets a new nonce for communication
 bool getNonce(){
-
     //Initialize cts structs and arrays
     INIT_CTS
 
@@ -128,7 +165,7 @@ bool getNonce(){
     
     //Send the nonce request
     serializeClientToServer(serialized_message, &message);
-    rc = write_synchronize(sd, serialized_message, sizeof(message));
+    rc = write_synchronized(sd, serialized_message, sizeof(message));
     if(rc != ECODE_SUCCESS){
         return false;
     }
@@ -137,7 +174,7 @@ bool getNonce(){
     INIT_STC
 
     //Wait for the response
-    rc = read_synchronize(sd, serialized_server_message, sizeof(server_message));
+    rc = read_synchronized(sd, serialized_server_message, sizeof(server_message));
     if(rc != ECODE_SUCCESS){
         return false;
     }
@@ -268,34 +305,8 @@ void handleBalance(){
     //Add the sending user
     strcpy(message.src.username, user.c_str());
 
-    //Encrypt and package payload
-    ENC_PACK_CTS
-    
-    //Send the nonce request
-    serializeClientToServer(serialized_message, &message);
-    rc = write_synchronize(sd, serialized_message, sizeof(message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to send balance request" << endl;
-        return;
-    }
-
-    //Initialize stc structs and arrays
-    INIT_STC
-
-    //Wait for the response
-    rc = read_synchronize(sd, serialized_server_message, sizeof(server_message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to receive valid response" << endl;
-        return;
-    }
-
-    //Deserialize, decrypt and check HMAC
-    deserializeServerToClient(serialized_server_message, &server_message);
-    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
-    if(rc != ECODE_SUCCESS){
-        cerr << "Mismatched HMAC" << endl;
-        return;
-    }
+    //Send the request the request and get the response
+    SEND_REQUEST_RECV_RESPONSE
 
     //Make sure it's a valid message type
     if(server_payload.tag != ackBalance){
@@ -322,7 +333,6 @@ void handleBalance(){
 }
 
 void handleWithdraw(vector<string> tokens){
-
     //Initialize cts structs and arrays
     INIT_CTS
 
@@ -346,34 +356,8 @@ void handleWithdraw(vector<string> tokens){
     //Add the sending user
     strcpy(message.src.username, user.c_str());
 
-    //Encrypt and package payload
-    ENC_PACK_CTS
-    
-    //Send the nonce request
-    serializeClientToServer(serialized_message, &message);
-    rc = write_synchronize(sd, serialized_message, sizeof(message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to send withdrawl request" << endl;
-        return;
-    }
-
-    //Initialize stc structs and arrays
-    INIT_STC
-
-    //Wait for the response
-    rc = read_synchronize(sd, serialized_server_message, sizeof(server_message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to receive valid response" << endl;
-        return;
-    }
-
-    //Deserialize, decrypt and check HMAC
-    deserializeServerToClient(serialized_server_message, &server_message);
-    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
-    if(rc != ECODE_SUCCESS){
-        cerr << "Mismatched HMAC" << endl;
-        return;
-    }
+    //Send the request the request and get the response
+    SEND_REQUEST_RECV_RESPONSE
 
     //Make sure it's a valid message type
     if(server_payload.tag != ackWithdrawlSuccess){
@@ -399,7 +383,6 @@ void handleWithdraw(vector<string> tokens){
 }
 
 void handleTransfer(vector<string> tokens){
-
     //Initialize cts structs and arrays
     INIT_CTS
 
@@ -428,34 +411,8 @@ void handleTransfer(vector<string> tokens){
     //Add the sending user
     strcpy(message.src.username, user.c_str());
 
-    //Encrypt and package payload
-    ENC_PACK_CTS
-    
-    //Send the nonce request
-    serializeClientToServer(serialized_message, &message);
-    rc = write_synchronize(sd, serialized_message, sizeof(message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to send transfer request" << endl;
-        return;
-    }
-
-    //Initialize stc structs and arrays
-    INIT_STC
-
-    //Wait for the response
-    rc = read_synchronize(sd, serialized_server_message, sizeof(server_message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to receive valid response" << endl;
-        return;
-    }
-
-    //Deserialize, decrypt and check HMAC
-    deserializeServerToClient(serialized_server_message, &server_message);
-    rc = deserialcrypt_stc(encrypt_key, mac_key, &server_message, &server_payload);
-    if(rc != ECODE_SUCCESS){
-        cerr << "Mismatched HMAC" << endl;
-        return;
-    }
+    //Send the request the request and get the response
+    SEND_REQUEST_RECV_RESPONSE
 
     //Make sure it's a valid message type
     if(server_payload.tag != ackTransferSuccess){
@@ -501,13 +458,8 @@ void handleLogout(){
     //Encrypt and package payload
     ENC_PACK_CTS
     
-    //Send the nonce request
-    serializeClientToServer(serialized_message, &message);
-    rc = write_synchronize(sd, serialized_message, sizeof(message));
-    if(rc != ECODE_SUCCESS){
-        cerr << "Failed to send logout request" << endl;
-        return;
-    }
+    //Serialize and send the logout request
+    SER_SEND_CTS
 
     //Don't wait for a response
     connected = false;
@@ -528,9 +480,10 @@ int main(int argc, char* argv[]){
     vector<string> tokens;
     while(true){
         printMenu();
+        prompt:
         tokens = get_tokenized_line();
         if(tokens.size() == 0){
-            continue;
+            goto prompt;
         }
         //Switch/Case doesn't work properly with strings
         if(tokens[0] == "login"){

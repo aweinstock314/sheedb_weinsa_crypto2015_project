@@ -104,7 +104,7 @@ error_code read_synchronized(int fd, char* buf, size_t count){
 
 //High level function for calling write_aon and send_synchronize
 error_code write_synchronized(int fd, const char* buf, size_t count){
-    return send_synchronize(fd) ? ECODE_FAILURE : write_aon(fd, buf, count)
+    return send_synchronize(fd) ? ECODE_FAILURE : write_aon(fd, buf, count);
 }
 
 //Encrypts using 128 bit AES
