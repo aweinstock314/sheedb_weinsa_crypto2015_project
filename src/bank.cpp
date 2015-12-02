@@ -7,6 +7,7 @@
 #include <thread>
 #include <unistd.h>
 
+#include "metacard.h"
 #include "utils.h"
 
 using namespace std;
@@ -24,8 +25,12 @@ void handle_control_c(int s) {
 }
 
 void handle_connection(int fd) {
-    cout << "handle_connection(" << fd << ")" << endl;
-    write_aon(fd, "some data", 10);
+    //cout << "handle_connection(" << fd << ")" << endl;
+    /*cts_payload in_payload;
+    client_to_server incoming;
+    do {
+        if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { break; }
+    } while(in_payload.tag != requestLogout);*/
     close(fd);
 }
 
