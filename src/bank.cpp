@@ -39,14 +39,13 @@ const unsigned char* get_signkey(const char* name) {
     return 0;
 }
 
-// handle_nonce populates the nonce, all the others zero the nonce after checking it
 void handle_nonce(nonce_t* nonce, stc_payload* dst) {
 }
-void handle_balance(nonce_t* nonce, const char* username, const cts_payload* src, stc_payload* dst) {
+void handle_balance(const char* username, const cts_payload* src, stc_payload* dst) {
 }
-void handle_withdrawl(nonce_t* nonce, const char* username, const cts_payload* src, stc_payload* dst) {
+void handle_withdrawl(const char* username, const cts_payload* src, stc_payload* dst) {
 }
-void handle_transfer(nonce_t* nonce, const char* username, const cts_payload* src, stc_payload* dst) {
+void handle_transfer(const char* username, const cts_payload* src, stc_payload* dst) {
 }
 
 void handle_connection(int fd) {
@@ -59,22 +58,37 @@ void handle_connection(int fd) {
     const unsigned char *cryptkey, *signkey;
     do {
         if(read_synchronized(fd, (char*)&incoming, sizeof incoming)) { break; }
-        // TODO: handle errors with replies
-        if(!(cryptkey = get_cryptkey(incoming.src.username))) { break; }
-        if(!(signkey = get_signkey(incoming.src.username))) { break; }
-        if(deserialcrypt_cts(cryptkey, signkey, &incoming, &in_payload)) { break; }
+        memset(&out_payload, 0, sizeof out_payload);
+        if(!(cryptkey = get_cryptkey(incoming.src.username)) ||
+            !(signkey = get_signkey(incoming.src.username))) {
+            out_payload.tag = invalidUser;
+            goto reply;
+        }
+        if(deserialcrypt_cts(cryptkey, signkey, &incoming, &in_payload)) {
+            out_payload.tag = invalidNonce; // technically invalid HMAC, but why leak info?
+            goto reply;
+        }
         //cout << endl; hexdump(1, &in_payload, sizeof in_payload); cout << endl;
+        if((in_payload.tag != requestNonce) && (in_payload.tag != requestLogout) &&
+            CRYPTO_memcmp(nonce.nonce, in_payload.nonce.nonce, sizeof nonce)) {
+            out_payload.tag = invalidNonce;
+            goto reply;
+        }
         switch(in_payload.tag) {
             case requestNonce: handle_nonce(&nonce, &out_payload); break;
-            case requestBalance: handle_balance(&nonce, incoming.src.username, &in_payload, &out_payload); break;
-            case requestWithdrawl: handle_withdrawl(&nonce, incoming.src.username, &in_payload, &out_payload); break;
-            case requestTransfer: handle_transfer(&nonce, incoming.src.username, &in_payload, &out_payload); break;
+            case requestBalance: handle_balance(incoming.src.username, &in_payload, &out_payload); break;
+            case requestWithdrawl: handle_withdrawl(incoming.src.username, &in_payload, &out_payload); break;
+            case requestTransfer: handle_transfer(incoming.src.username, &in_payload, &out_payload); break;
             case requestLogout: goto skip_reply; break;
+        }
+        if(in_payload.tag != requestNonce) {
+            memset(&nonce, 0, sizeof nonce);
         }
         reply:
         if(enserialcrypt_stc(cryptkey, signkey, &out_payload, &outgoing)) { break; }
         if(write_synchronized(fd, (char*)&outgoing, sizeof outgoing)) { break; }
         skip_reply:
+        (void)0;
     } while(in_payload.tag != requestLogout);
     close(fd);
 }
