@@ -47,11 +47,12 @@ enum stc_payload_tag {
     supplyNonce = 0,
     invalidNonce,
     invalidUser, // only for the initiator of a request
-    insufficentFunds, // for either withdrawl or transfer
+    insufficientFunds, // for either withdrawl or transfer
     ackBalance,
     ackWithdrawlSuccess,
     ackTransferSuccess,
     ackTransferInvalidDestination, // destination user doesn't exist
+    ackTransferWouldOverflow,
 };
 
 //Server to client message contents

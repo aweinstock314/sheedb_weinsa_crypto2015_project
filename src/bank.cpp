@@ -46,6 +46,27 @@ void handle_balance(const char* username, const cts_payload* src, stc_payload* d
 void handle_withdrawl(const char* username, const cts_payload* src, stc_payload* dst) {
 }
 void handle_transfer(const char* username, const cts_payload* src, stc_payload* dst) {
+    const char* other = src->destination.username;
+    uint64_t amount = src->currency.cents;
+    if(!get_cryptkey(other)) {
+        dst->tag = ackTransferInvalidDestination;
+        return;
+    }
+    lock_guard<mutex> lock(balance_guard);
+    if(balances[username] < amount) {
+        dst->tag = insufficientFunds;
+        return;
+    }
+    if(balances[other] + amount < balances[other]) {
+        // Avoid the case where:
+        // 1) A bank admin uses the shell to (legitimately) deposit 2**64-1 cents to Eve
+        // 2) Alice transfers 2 cents to Eve
+        // 3) Eve now has only 1 cent
+        dst->tag = ackTransferWouldOverflow;
+        return;
+    }
+    balances[other] += amount;
+    balances[username] -= amount;
 }
 
 void handle_connection(int fd) {
@@ -62,7 +83,7 @@ void handle_connection(int fd) {
         if(!(cryptkey = get_cryptkey(incoming.src.username)) ||
             !(signkey = get_signkey(incoming.src.username))) {
             //out_payload.tag = invalidUser;
-            goto skipreply; // if we don't have keys for the user, we can't sign a response at them.
+            goto skip_reply; // if we don't have keys for the user, we can't sign a response at them.
         }
         if(deserialcrypt_cts(cryptkey, signkey, &incoming, &in_payload)) {
             out_payload.tag = invalidNonce; // technically invalid HMAC, but why leak info?
