@@ -326,3 +326,9 @@ void hexdump(int fd, const void* buffer, size_t count) {
         p++;
     }
 }
+
+void print_prompt() {
+    cout << "> ";
+    cout.flush();
+}
+

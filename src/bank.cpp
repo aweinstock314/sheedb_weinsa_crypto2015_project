@@ -74,11 +74,6 @@ void print_bankshell_menu() {
     cout << endl;
 }
 
-void print_prompt() {
-    cout << "> ";
-    cout.flush();
-}
-
 void handle_deposit(vector<string> tokens) {
     if(tokens.size() != 3) {
         cout << "Expected 2 parameters to 'deposit'." << endl;

@@ -61,5 +61,6 @@ char* deserialize_uint8_a(uint8_t* value, int size, char* buf);*/
 
 char hexdigit(char nybble);
 void hexdump(int fd, const void* buffer, size_t count);
+void print_prompt();
 
 #endif
