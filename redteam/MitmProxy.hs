@@ -5,15 +5,16 @@ import Control.Concurrent
 import Control.Monad
 import Crypto.Cipher.AES
 import Crypto.Cipher.Types
+import Crypto.Error
 import Crypto.Hash.Algorithms
 import Crypto.PubKey.RSA
 import Crypto.PubKey.RSA.OAEP
 import Crypto.Random
-import Crypto.Error
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
 import Data.ASN1.Encoding
 import Data.ASN1.Types
+import Data.Char
 import Data.Maybe
 import Data.Word
 import Network
@@ -114,18 +115,14 @@ mitmHandshake atm bank logTo logFrom = do
     B.hPut atm "DUMMY"
     return (aes, aesIV)
 
-passiveMitm atm bank logTo logFrom aes aesIv = loop where
+passiveMitm atm bank logTo logFrom aes aesIv = dumbProxy atm bank (wrap logTo) (wrap logFrom) where
     bufferSize = 4096
-    logTo' s = logTo (cfbDecrypt (aes :: AES128) aesIv s) >> return s
-    logFrom' s = logFrom (cfbDecrypt aes aesIv s) >> return s
-    loop = do
-        atmEOF <- hIsEOF atm
-        unless atmEOF $ do
-            B.hGetSome atm bufferSize >>= logTo' >>= B.hPut bank
-            bankEOF <- hIsEOF bank
-            unless bankEOF $ do
-                B.hGetSome bank bufferSize >>= logFrom' >>= B.hPut atm
-                loop
+    wrap log ctxt = do
+        let ptxt = cfbDecrypt (aes :: AES128) aesIv ctxt
+        let split' c = B.split (fromIntegral $ ord c)
+        log ptxt
+        print . map (split' ';') . split' ':' $ ptxt
+        return ctxt
 
 doMitm bankPort (atm, host, atmPort) = do
     putStrLn $ "Received a connection from " ++ host ++ ":" ++ show atmPort
