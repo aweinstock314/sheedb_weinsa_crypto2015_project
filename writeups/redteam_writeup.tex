@@ -18,6 +18,29 @@ Target Implementation Written By Peter Kang, Kevin Andrade, and Julius Alexander
 \subsection*{Denial of Service (Bank Process Killed)}
 \subsection*{Denial of Service (Permanent 100\% CPU Usage On Host)}
 \subsection*{Man in the Middle Attack}
+The way the initial handshake is supposed to work is:
+\begin{enumerate}[1)]
+\item Bank generates an RSA keypair
+\item Bank sends ATM its public key
+\item ATM generates random AES key \& IV
+\item ATM encrypts the key \& IV with the Bank's public key
+\item ATM sends the encrypted key \& IV to the Bank
+\item Bank decrypts the key \& IV
+\item All further conversation is fixed-width packets encrypted with AES
+\end{enumerate}
+(Un)fortunately, the ATM has no way of knowing that the RSA public key actually belongs to the bank, and hence all traffic can be intercepted and modified with the following protocol:
+\begin{enumerate}[1)]
+\item Bank generates an RSA keypair
+\item Bank sends Proxy its public key
+\item Proxy generates an RSA keypair
+\item Proxy sends ATM its public key
+\item ATM generates random AES key \& IV
+\item ATM encrypts the key \& IV with the Proxy's public key
+\item ATM sends the encrypted key \& IV to the Proxy
+\item Proxy decrypts the key \& IV
+\item Proxy re-encrypts the key \& IV with the Bank's public key
+\item All further conversation is fixed-width packets encrypted with AES, and the proxy knows the key
+\end{enumerate}
 \section*{Attempted unsuccessful attacks}
 \subsection*{Remote Code Execution}
 \end{document}
