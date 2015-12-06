@@ -41,6 +41,7 @@ The way the initial handshake is supposed to work is:
 \item Proxy re-encrypts the key \& IV with the Bank's public key
 \item All further conversation is fixed-width packets encrypted with AES, and the proxy knows the key
 \end{enumerate}
+Since the proxy can read and modify all traffic (as well as start independent sessions without an ATM connected), if anyone tries to log in with the proxy in the middle the proxy can capture their PIN and transfer/withdraw all their money before logging them in.
 \section*{Attempted unsuccessful attacks}
 \subsection*{Remote Code Execution}
 \end{document}
