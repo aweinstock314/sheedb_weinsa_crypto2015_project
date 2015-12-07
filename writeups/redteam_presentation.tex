@@ -8,11 +8,62 @@
 \maketitle
 
 \begin{frame}[fragile]
-\frametitle{A Slide}
+\frametitle{Successful Attacks}
 \begin{itemize}
-\item Some
-\item Bullet
-\item Points
+\item Denial of Service
+\begin{itemize}
+\item Cause connection refusal (+ 100\% CPU usage)
+\item Kill bank process
+\end{itemize}
+\item Man in the Middle Attack (Full Key Disclosure)
+\begin{itemize}
+\item Eavesdrop
+\item Steal everyone's money
+\item Dispense infinite money
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Connection Refusal DoS}
+\begin{itemize}
+\item Bank does not handle disconnected ATMs properly (e.g. \^{}C)
+\begin{itemize}
+\item Causes the thread handling the connection to begin infinite loop
+\item Thus doesn't close socket descriptor
+\end{itemize}
+\item Repeatedly connect and disconnect ATMs
+\item Results in bank running out of socket descriptors and refusing further connections
+\item Also maxes out the CPU, causing host to become extremely slow
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Process Killing DoS}
+\begin{itemize}
+\item Two ways of killing bank
+\item Cause a SIGPIPE signal
+\begin{itemize}
+\item Caused by trying to read from a closed descriptor
+\item Achieved by repeatedly opening ATMs, logging in, logging out, and immediately killing the ATM process
+\end{itemize}
+\item Send back fewer bytes than expected in the key exchange
+\begin{itemize}
+\item CryptoPP expects exactly 384 bytes, throws an exception if input differs
+\item Input not checked before handing to function
+\item Achieved by having the proxy send back an arbitrary string that's shorter than 384 bytes
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Key Exchange DoS Demo}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Man in the Middle Attack}
+\begin{itemize}
+\item asdf
 \end{itemize}
 \end{frame}
 
