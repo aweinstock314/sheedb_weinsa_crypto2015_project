@@ -1,0 +1,54 @@
+\documentclass{beamer}
+\usepackage{tikz}
+\title{BlueTeam presentation on Mock Banking System\\Cryptography \& Network Security (\Verb|CSCI-4230|)}
+\date{December 9, 2015}
+\author{Brian Sheedy \& Avi Weinstock}
+\usepackage{fancyvrb}
+\begin{document}
+\maketitle
+
+\begin{frame}[fragile]
+\frametitle{Protocol Overview}
+\begin{itemize}
+\item Statically sized messages
+\item AES Encryption
+\item HMAC
+\item Nonces
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Encryption}
+\begin{itemize}
+\item 128-bit AES
+\item Applied to everything except the sender's name and HMAC
+\item Applied to every message, including nonce requests/responses
+\item Provides confidentiality and authenticity
+\item Keys statically set in bank, stored in cards for ATM
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{HMAC}
+\begin{itemize}
+\item OpenSSL's HMAC function using SHA-256
+\item Applied to the encrypted data
+\item Applied in every message
+\item Provides integrity and authenticity
+\item 128-bit key set statically in bank and stored in cards for ATM
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Nonces}
+\begin{itemize}
+\item Prevent replay attacks
+\item Each message to the bank preceeded by requesting a new nonce
+\item Nonce included in the message
+\item If the nonce from the ATM does not match the one in the bank, the bank rejects the message
+\item If the nonce from the bank does not match the one originally sent to the bank, the ATM rejects the message
+\item Nonce is cleared from the bank after every message
+\end{itemize}
+\end{frame}
+
+\end{document}
