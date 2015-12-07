@@ -15,7 +15,7 @@
 \item Cause connection refusal (+ 100\% CPU usage)
 \item Kill bank process
 \end{itemize}
-\item Man in the Middle Attack (Full Key Disclosure)
+\item Man in the Middle Attack (Session Key Disclosure)
 \begin{itemize}
 \item Eavesdrop
 \item Steal everyone's money
@@ -63,8 +63,39 @@
 \begin{frame}[fragile]
 \frametitle{Man in the Middle Attack}
 \begin{itemize}
-\item asdf
+\item ATM sends the session key to the bank after receiving the bank's public RSA key
+\item However, ATM does not know whether the public key it receives is actually the bank's
+\item Can intercept the bank's public key and send our own public key to the ATM
+\item We receive the encrypted session key, decrypt it, encrypt it with the bank's public key, and send it to the bank
+\item Now we know the AES session key
+\begin{itemize}
+\item Can passively eavesdrop and steal PINs
+\item Can modify any passed messages
+\item Can imitate the bank
 \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Specific Man in the Middle Attack Examples}
+\begin{itemize}
+\item Steal everyone's money
+\begin{itemize}
+\item Anytime someone sends a message to the bank, modify it
+\item Change the message to transfer money from the victim to us
+\end{itemize}
+\item Dispense infinite money
+\begin{itemize}
+\item Log in to an ATM
+\item Make a withdrawal request
+\item Intercept message to bank and reply with a message approving the withdrawal
+\item ATM dispenses the money without any money being deducted from the account
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Man in the Middle Attack Demo(s)}
 \end{frame}
 
 \end{document}
