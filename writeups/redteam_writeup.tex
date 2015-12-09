@@ -1,9 +1,10 @@
+% (runghc GenerateStackDiagram.hs && pdflatex redteam_writeup.tex && evince redteam_writeup.pdf)
 \documentclass[12pt]{article}
 \usepackage{color}
 \usepackage[pdftex]{graphicx}
 \usepackage{tikz}
 \usepackage{enumerate}
-\usepackage[margin=1in,footskip=0.25in]{geometry}
+\usepackage[margin=0.25in,footskip=0.25in]{geometry}
 \usepackage[normalem]{ulem}
 \usepackage{setspace}
 \usepackage{fancyvrb}
@@ -344,4 +345,9 @@ actNewNonce = \"WTE*ZJYP33713278\", actCmd = Logout, actAmount = 0, actRecipient
 \end{Verbatim}
 \section*{Attempted unsuccessful attacks}
 \subsection*{Remote Code Execution}
+\includegraphics[width=\textwidth]{bankscreenshot_cropped.png}
+\pagebreak\\
+\begin{tikzpicture}
+\input{stackDiagram.tikz}
+\end{tikzpicture}
 \end{document}
