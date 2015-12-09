@@ -21,7 +21,7 @@ arrow x1 x2 x3 y1 y2 = [s|\\draw[->] (%?,%?) -- (%?,%?) -- (%?,%?) -- (%?,%?);|]
 ebp = [s|EBP %c %4x|]
 stackDiagram = concat $ [
     --stackFrame 7 10 "alphabet" ["hello", "world"],
-    stackFrame 0 aesFrame "bank_aes_handshake arguments" [
+    stackFrame 1 aesFrame "bank_aes_handshake arguments" [
         (ebp '+' 0x08, "int client_fd"),
         (ebp '+' 0x0c, "PrivateKey &privateKey"),
         (ebp '+' 0x10, "PublicKey &publicKey"),
@@ -29,7 +29,7 @@ stackDiagram = concat $ [
         (ebp '+' 0x18, "byte* iv"),
         (ebp '+' 0x1c, "std::string& init_nonce")
         ],
-    stackFrame 11 threadFrame "thread_handle locals" [
+    stackFrame 11.5 threadFrame "thread_handle locals" [
         (ebp '-' 0x1cc, "std::string nonce"),
         (ebp '-' 0x1c0, "action::Action response"),
         (ebp '-' 0x100, "action::Action action"),
@@ -42,7 +42,7 @@ stackDiagram = concat $ [
         (ebp '-' 0x01c, "int client_sock"),
         (ebp '-' 0x018, "client_info *client_args")
         ],
-    stackFrame 0 mainFrame "main locals" [
+    stackFrame 1 mainFrame "main locals" [
         (ebp '-' 0x29c, "int client_sock"),
         (ebp '-' 0x268, "char port_str[10]"),
         (ebp '-' 0x238, "client_info client_args"),
@@ -60,12 +60,12 @@ stackDiagram = concat $ [
         (ebp '-' 0x128, "PrivateKey privateKey"),
         (ebp '-' 0x028, "std::string inputPort")
     ],
-    arrow 9.1 9.5 9.1 (offset aesFrame 1) (offset 0 4),
-    arrow 9.1 9.9 9.1 (offset aesFrame 2) (offset 0 5),
-    arrow 11 10.6 9.1 (offset threadFrame 8) (offset 0 4.1),
-    arrow 11 10.2 9.1 (offset threadFrame 7) (offset 0 5.1),
-    arrow 9.1 10.4 11 (offset aesFrame 3) (offset 5 6),
-    arrow 9.1 10.2 11 (offset aesFrame 4) (offset 5 4)
+    arrow 1 0.5 1 (offset aesFrame 1) (offset mainFrame 4),
+    arrow 1 0 1 (offset aesFrame 2) (offset mainFrame 5),
+    arrow 11.5 11.0 10.1 (offset threadFrame 8) (offset mainFrame 4),
+    arrow 11.5 10.5 10.1 (offset threadFrame 7) (offset mainFrame 5),
+    arrow 10.1 11.0 11.5 (offset aesFrame 3) (offset 5 6),
+    arrow 10.1 10.5 11.5 (offset aesFrame 4) (offset 5 4)
     ] where
     aesFrame = 6; threadFrame = 5; mainFrame = 0
 
