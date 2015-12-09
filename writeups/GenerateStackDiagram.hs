@@ -34,7 +34,8 @@ stackDiagram = concat $ [
         (ebp '-' 0x1c0, "action::Action response"),
         (ebp '-' 0x100, "action::Action action"),
         (ebp '-' 0x0e0, "std::string s"),
-        (ebp '-' 0x048, "byte iv[20]"),
+        (ebp '-' 0x048, "byte iv[16]"),
+        (ebp '-' 0x038, "int dummy_alloc"),
         (ebp '-' 0x034, "byte aes_key[16]"),
         (ebp '-' 0x024, "PublicKey *publicKey"),
         (ebp '-' 0x020, "PrivateKey *privateKey"),
@@ -61,9 +62,9 @@ stackDiagram = concat $ [
     ],
     arrow 9.1 9.5 9.1 (offset aesFrame 1) (offset 0 4),
     arrow 9.1 9.9 9.1 (offset aesFrame 2) (offset 0 5),
-    arrow 11 10.6 9.1 (offset threadFrame 7) (offset 0 4.1),
-    arrow 11 10.2 9.1 (offset threadFrame 6) (offset 0 5.1),
-    arrow 9.1 10.4 11 (offset aesFrame 3) (offset 5 5),
+    arrow 11 10.6 9.1 (offset threadFrame 8) (offset 0 4.1),
+    arrow 11 10.2 9.1 (offset threadFrame 7) (offset 0 5.1),
+    arrow 9.1 10.4 11 (offset aesFrame 3) (offset 5 6),
     arrow 9.1 10.2 11 (offset aesFrame 4) (offset 5 4)
     ] where
     aesFrame = 6; threadFrame = 5; mainFrame = 0

@@ -81,8 +81,7 @@
 \begin{itemize}
 \item Steal everyone's money
 \begin{itemize}
-\item Anytime someone sends a message to the bank, modify it
-\item Change the message to transfer money from the victim to us
+\item Anytime someone attempts to log in to the bank, log in before them and transfer all their money to Eve (and then log them in normally)
 \end{itemize}
 \item Dispense infinite money
 \begin{itemize}
@@ -98,4 +97,26 @@
 \frametitle{Man in the Middle Attack Demo(s)}
 \end{frame}
 
+\begin{frame}[fragile]
+\frametitle{RCE Attempt}
+\begin{itemize}
+\item During the key exchange, the AES Key and IV are decrypted with RSA-OAEP-SHA1
+\item Their lengths aren't checked, and the maximum payload size is 342
+\item Only enough space is allocated for 16 byte keys/nonces
+\item Sadly, this isn't obviously exploitable because there's a socket descriptor that acts as a canary
+\item (\verb|read| returns \verb|EBADF| in an infinite loop)
+\item If errors were actually handled correctly, this would be trivially exploitable
+\end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+\frametitle{RCE Attempt (Vulnerable code)}
+\includegraphics[height=0.8\textheight]{bankscreenshot_cropped.png}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{RCE Attempt (Stack diagram)}
+\begin{tikzpicture}[scale=0.4, every node/.style={scale=0.4}]
+\input{stackDiagram.tikz}
+\end{tikzpicture}
+\end{frame}
 \end{document}
