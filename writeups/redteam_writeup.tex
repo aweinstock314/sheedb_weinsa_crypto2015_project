@@ -349,5 +349,6 @@ actNewNonce = \"WTE*ZJYP33713278\", actCmd = Logout, actAmount = 0, actRecipient
 \pagebreak\\
 \begin{tikzpicture}
 \input{stackDiagram.tikz}
-\end{tikzpicture}
+\end{tikzpicture}\\
+There's 2 \verb|sprintf|s in \verb|bank_aes_handshake| that smash the stack in \verb|thread_handle| (342 bytes each, the maximum size of an RSA-OAEP-SHA1 payload), but unfortunately, \verb|client_sock| acts as a canary (since if it's not a valid file descriptor, \verb|thread_handle| goes into an infinite loop while trying to read from it. This is the source of the ``100\% CPU DOS'' above).
 \end{document}

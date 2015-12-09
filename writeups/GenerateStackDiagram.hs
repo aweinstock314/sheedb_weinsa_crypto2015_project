@@ -59,10 +59,10 @@ stackDiagram = concat $ [
         (ebp '-' 0x128, "PrivateKey privateKey"),
         (ebp '-' 0x028, "std::string inputPort")
     ],
-    arrow 9.1 9.3 9.1 (offset aesFrame 1) (offset 0 4),
-    arrow 9.1 9.5 9.1 (offset aesFrame 2) (offset 0 5),
-    arrow 11 10.8 9.1 (offset threadFrame 7) (offset 0 4),
-    arrow 11 10.6 9.1 (offset threadFrame 6) (offset 0 5),
+    arrow 9.1 9.5 9.1 (offset aesFrame 1) (offset 0 4),
+    arrow 9.1 9.9 9.1 (offset aesFrame 2) (offset 0 5),
+    arrow 11 10.6 9.1 (offset threadFrame 7) (offset 0 4.1),
+    arrow 11 10.2 9.1 (offset threadFrame 6) (offset 0 5.1),
     arrow 9.1 10.4 11 (offset aesFrame 3) (offset 5 5),
     arrow 9.1 10.2 11 (offset aesFrame 4) (offset 5 4)
     ] where
